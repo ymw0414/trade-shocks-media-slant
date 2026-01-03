@@ -1,11 +1,10 @@
 """
-check_scrapes_raw_structure.py
+check_2008_presence.py
 
-Inspect file extensions and directory structure in scrapes_raw.
+Check whether 2008 daily CSV files exist and match glob patterns.
 """
 
 from pathlib import Path
-from collections import Counter
 
 RAW_DIR = Path(
     r"C:\Users\ymw04\Dropbox\shifting_slant\data\raw\newspapers\scrapes_raw"
@@ -13,32 +12,19 @@ RAW_DIR = Path(
 
 
 def main():
-    files = list(RAW_DIR.rglob("*"))
-    files = [f for f in files if f.is_file()]
+    all_2008 = sorted(RAW_DIR.glob("*2008*.csv"))
+    dash_2008 = sorted(RAW_DIR.glob("2008-*.csv"))
 
-    print("Total files:", len(files))
+    print("Total *2008*.csv files:", len(all_2008))
+    print("Total 2008-*.csv files:", len(dash_2008))
 
-    # Extensions
-    exts = Counter(f.suffix.lower() for f in files)
-    print("\nExtensions:")
-    for k, v in exts.most_common():
-        print(f"  {k or '<no suffix>'}: {v}")
+    print("\nSample filenames (*2008*.csv):")
+    for f in all_2008[:10]:
+        print(" ", f.name)
 
-    # Sample filenames
-    print("\nSample file paths:")
-    for f in files[:10]:
-        print(" ", f.relative_to(RAW_DIR))
-
-    # Detect year patterns
-    years = Counter()
-    for f in files:
-        for y in range(2005, 2009):
-            if str(y) in f.name or str(y) in str(f.parent):
-                years[y] += 1
-
-    print("\nFiles mentioning year:")
-    for y in sorted(years):
-        print(f"  {y}: {years[y]}")
+    print("\nSample filenames (2008-*.csv):")
+    for f in dash_2008[:10]:
+        print(" ", f.name)
 
 
 if __name__ == "__main__":
