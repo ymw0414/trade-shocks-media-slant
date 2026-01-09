@@ -1,79 +1,49 @@
 """
-02_merge_speaker_map.py
+07b_manual_prep.py
 
-Load SpeakerMap files correctly and save speaker-party mapping.
+[PURPOSE]
+- Prepares a CSV file for MANUAL human verification.
+- Disables AI/Gemini integration completely.
+- Creates 'paper_name_crosswalk_fuzzy_manual.csv' for the user to edit in Excel.
 """
 
 import os
 import pandas as pd
 from pathlib import Path
 
-# --------------------------------------------------
-# Paths (OS-agnostic via env var)
-# --------------------------------------------------
-
+# 1. Path Setup
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-
-RAW_DIR = (
-    BASE_DIR
-    / "data"
-    / "raw"
-    / "speeches"
-    / "hein-bound"
-)
-
-OUT_DIR = (
-    BASE_DIR
-    / "data"
-    / "intermediate"
-    / "speeches"
-)
-
-# --------------------------------------------------
-# Load function
-# --------------------------------------------------
-
-def load_speaker_map(raw_dir: Path) -> pd.DataFrame:
-    dfs = []
-
-    for i in range(43, 112):
-        suffix = f"{i:03d}"
-        file = raw_dir / f"{suffix}_SpeakerMap.txt"
-
-        if not file.exists():
-            print("skip:", file)
-            continue
-
-        df = pd.read_csv(
-            file,
-            sep="|",
-            dtype=str,
-            encoding="cp1252",
-        )
-
-        df["congress"] = suffix
-        dfs.append(df)
-
-    if not dfs:
-        raise RuntimeError("No SpeakerMap files loaded")
-
-    return pd.concat(dfs, ignore_index=True)
-
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
+FUZZY_PATH = BASE_DIR / "data" / "meta" / "newspapers" / "paper_name_crosswalk_fuzzy.csv"
+OUTPUT_PATH = BASE_DIR / "data" / "meta" / "newspapers" / "paper_name_crosswalk_fuzzy_manual.csv"
 
 def main():
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    if not FUZZY_PATH.exists():
+        print(f"Error: {FUZZY_PATH} not found.")
+        return
 
-    df = load_speaker_map(RAW_DIR)
+    # Load the fuzzy matches
+    df = pd.read_csv(FUZZY_PATH)
 
-    out = OUT_DIR / "speaker_map.parquet"
-    df.to_parquet(out)
+    # Create columns for manual entry
+    # Initialize 'valid' as empty so you can fill it (1 for Same, 0 for Different/Merger)
+    df['valid'] = ""
+    df['notes'] = "" # Space for your own comments if needed
 
-    print("Saved:", out)
-    print("Shape:", df.shape)
+    # Save to a new file for manual editing
+    df.to_csv(OUTPUT_PATH, index=False)
 
+    print("-" * 30)
+    print("READY FOR MANUAL REVIEW")
+    print("-" * 30)
+    print(f"File created: {OUTPUT_PATH}")
+    print("\n[INSTRUCTIONS]")
+    print("1. Open this file in Excel.")
+    print("2. Look at 'original_name' vs 'clean_name'.")
+    print("3. In the 'valid' column, type:")
+    print("   - '1' if they are the SAME newspaper.")
+    print("   - '0' if they are MERGERS or DIFFERENT.")
+    print("4. Save and Close the file.")
+    print("5. Let me know when you are done.")
 
 if __name__ == "__main__":
     main()
