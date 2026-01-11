@@ -80,7 +80,7 @@ display ">>> Logging to: $logs/master_log.txt"
 * do "$scripts/01_build_nafta_vars.do"
 
 * Step 2: Merge Data
-* do "$scripts/02_merge_newspaper_with_econ.do"
+* do "$scripts/03_prepare_newspaper_cz.do"
 
 * Step 3: Analysis
 * do "$scripts/03_analysis_eventstudy.do"
@@ -110,9 +110,9 @@ display ">>> [Step 01] Building Variables..."
 
 """
 
-# [02_merge_newspaper_with_econ.do]
+# [03_prepare_newspaper_cz.do]
 CONTENT_MERGE = r"""/* -------------------------------------------------------------------------- */
-/* FILE: 02_merge_newspaper_with_econ.do                                                   */
+/* FILE: 03_prepare_newspaper_cz.do                                                   */
 /* DESC: Merges Python Slant Panel with Stata Economic Variables              */
 /* -------------------------------------------------------------------------- */
 
@@ -183,7 +183,7 @@ display ">>> [Step 03] Running Analysis..."
 DO_FILES = {
     "00_master.do": CONTENT_MASTER,
     "01_build_nafta_vars.do": CONTENT_BUILD,
-    "02_merge_newspaper_with_econ.do": CONTENT_MERGE,
+    "03_prepare_newspaper_cz.do": CONTENT_MERGE,
     "03_analysis_eventstudy.do": CONTENT_ANALYSIS
 }
 

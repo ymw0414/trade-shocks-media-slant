@@ -1,10 +1,10 @@
 """
-FILE: 07d_normalize_slant.py
+FILE: 07d_normalize_slant_by_year.py
 DESCRIPTION:
-    - Loads the aggregated panel data (from 07c).
-    - Performs GLOBAL standardization (Z-score) on 'slant_weighted'.
-    - Formula: Z = (X - Mean) / Std_Dev
-    - Preserves time trends (does not normalize year-by-year).
+    - Loads the aggregated panel data (newspaper x year).
+    - Performs YEAR-BY-YEAR standardization (Z-score) on 'slant_weighted'.
+    - Logic: Within each year, calculate how many std devs a paper is from the mean.
+    - This ensures strictly cross-sectional comparison per year.
     - Output: 'newspaper_panel_1986_2004_normalized.csv'
 """
 
@@ -13,68 +13,55 @@ import pandas as pd
 from pathlib import Path
 
 # --------------------------------------------------
-# Paths
+# Paths Configuration
 # --------------------------------------------------
-# Adjust base directory if necessary
 BASE_DIR = Path(os.environ.get("SHIFTING_SLANT_DIR", r"C:\Users\ymw04\Dropbox\shifting_slant"))
-
-# Input: Output from 07c
 INPUT_FILE = BASE_DIR / "data" / "analysis" / "newspaper_panel_1986_2004.csv"
-
-# Output: Normalized file
 OUTPUT_FILE = BASE_DIR / "data" / "analysis" / "newspaper_panel_1986_2004_normalized.csv"
-
 
 def main():
     print("-" * 60)
-    print(">>> [Step 07d] Normalizing Slant Scores...")
+    print("-" * 60)
+    print(">>> [Step 07d] Normalizing Slant Scores (Year-by-Year)...")
     print("-" * 60)
 
     # 1. Load Data
     if not INPUT_FILE.exists():
         print(f"❌ Error: Input file not found: {INPUT_FILE}")
-        print("Please run 07c_aggregate_slant_panel.py first.")
         return
 
     df = pd.read_csv(INPUT_FILE)
-    print(f"✅ Loaded {len(df):,} rows from {INPUT_FILE.name}")
+    print(f"✅ Loaded {len(df):,} rows.")
 
-    # 2. Check for missing or infinite values
-    initial_count = len(df)
+    # 2. Basic Cleanup
+    # Remove rows where slant is missing before calculation
     df = df.dropna(subset=['slant_weighted'])
-    if len(df) < initial_count:
-        print(f"⚠️ Dropped {initial_count - len(df)} rows with missing slant values.")
 
-    # 3. Calculate Global Statistics
-    # We use global mean/std to preserve trends over time (e.g., if everyone moves right).
-    global_mean = df['slant_weighted'].mean()
-    global_std = df['slant_weighted'].std()
+    # 3. Apply Year-by-Year Normalization
+    # Formula: Z_it = (Slant_it - Mean_t) / Std_t
+    print("\n🔄 Applying Standardization within each Year...")
 
-    print(f"\n📊 Statistics before Normalization:")
-    print(f"   - Mean: {global_mean:.6f}")
-    print(f"   - Std : {global_std:.6f}")
-    print(f"   - Min : {df['slant_weighted'].min():.6f}")
-    print(f"   - Max : {df['slant_weighted'].max():.6f}")
+    df['slant_normalized'] = df.groupby('year')['slant_weighted'].transform(
+        lambda x: (x - x.mean()) / x.std()
+    )
 
-    # 4. Apply Normalization (Standardization)
-    # Z = (X - mu) / sigma
-    df['slant_normalized'] = (df['slant_weighted'] - global_mean) / global_std
+    # 4. Verify Results
+    # Check that means are ~0 and std are ~1 for a few sample years
+    print(f"\n📊 Verification (Per-Year Stats should be Mean~0, Std~1):")
+    verify_years = [1990, 1996, 2000]
+    for y in verify_years:
+        if y in df['year'].values:
+            subset = df[df['year'] == y]['slant_normalized']
+            print(f"   [Year {y}] Mean: {subset.mean():.4f} | Std: {subset.std():.4f} | N: {len(subset)}")
 
-    # 5. Verify Results
-    print(f"\n📊 Statistics after Normalization (should be ~0.0 and ~1.0):")
-    print(f"   - Mean: {df['slant_normalized'].mean():.6f}")
-    print(f"   - Std : {df['slant_normalized'].std():.6f}")
-
-    # 6. Save Output
+    # 5. Save Output
     os.makedirs(OUTPUT_FILE.parent, exist_ok=True)
     df.to_csv(OUTPUT_FILE, index=False)
 
     print("-" * 60)
     print(f"✅ Normalization Complete.")
     print(f"💾 Saved to: {OUTPUT_FILE}")
-    print(f"NOTE: Positive values (+) indicate Republican leaning in your model.")
     print("-" * 60)
-
 
 if __name__ == "__main__":
     main()

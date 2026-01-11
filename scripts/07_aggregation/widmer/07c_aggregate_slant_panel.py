@@ -3,7 +3,7 @@ FILE: 07c_aggregate_slant_panel.py
 DESCRIPTION:
     - Loads the final target list.
     - Aggregates slant data from 1986 to 2004.
-    - FIX: Explicit type casting and verification step for Akron 1986 data.
+    - FIX: Proper year filtering (1986–2004 only).
     - Output: 'newspaper_panel_1986_2004.csv'
 """
 
@@ -23,6 +23,7 @@ OUTPUT_FILE = BASE_DIR / "data" / "analysis" / "newspaper_panel_1986_2004.csv"
 # --------------------------------------------------
 # Configuration
 # --------------------------------------------------
+MIN_YEAR = 1986
 MAX_YEAR = 2004
 
 NAME_FIX_MAP = {
@@ -39,56 +40,67 @@ def main():
         print(f"Error: {TARGET_LIST_FILE} not found. Run 07b first.")
         return
 
-    # Load Clean List
+    # Load target list
     target_df = pd.read_csv(TARGET_LIST_FILE)
-    target_set = set(target_df['paper'].unique())
+    target_set = set(target_df["paper"].unique())
     print(f">>> [07c] Target Papers: {len(target_set)}")
 
-    files = sorted(list(SLANT_DIR.glob("news_slant_congress_*.parquet")))
+    files = sorted(SLANT_DIR.glob("news_slant_congress_*.parquet"))
     all_chunks = []
 
-    print(">>> Starting Aggregation...")
+    print(">>> Starting aggregation...")
 
-    for f in tqdm(files, desc="Processing Files"):
+    for f in tqdm(files, desc="Processing files"):
         try:
-            # Load Data
-            df = pd.read_parquet(f, columns=['paper', 'date', 'slant', 'used_terms'])
+            # Load data
+            df = pd.read_parquet(
+                f,
+                columns=["paper", "date", "slant", "used_terms"]
+            )
 
-            # Extract Year
-            df['year'] = pd.to_datetime(df['date'], errors='coerce').dt.year
-            df = df[df['year'] <= MAX_YEAR]
+            # Extract and filter year (STRICT)
+            df["year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
+            df = df[df["year"].between(MIN_YEAR, MAX_YEAR)]
+            if df.empty:
+                continue
 
-            if df.empty: continue
+            # Apply name fixes
+            df["paper_clean"] = df["paper"].replace(NAME_FIX_MAP).str.strip()
 
-            # --- 1. Apply Name Mapping First ---
-            df['paper_clean'] = df['paper'].replace(NAME_FIX_MAP).str.strip()
+            # Keep only target papers
+            df = df[df["paper_clean"].isin(target_set)]
+            if df.empty:
+                continue
 
-            # --- 2. Filter Targets ---
-            df = df[df['paper_clean'].isin(target_set)]
-            if df.empty: continue
+            # Explicit type casting
+            df["slant"] = df["slant"].astype(float)
+            df["used_terms"] = df["used_terms"].astype(float)
 
-            # --- 3. Explicit Type Casting (Critical Fix) ---
-            df['slant'] = df['slant'].astype(float)
-            df['used_terms'] = df['used_terms'].astype(float)
-
-            # --- 4. Verify Calculation for Akron 1986 (Debug Check) ---
-            # If this file contains the Akron data, print it to prove it's not 0.
-            check_mask = (df['paper_clean'] == "Akron Beacon Journal (OH)") & (df['year'] == 1986)
+            # Debug check: Akron 1986
+            check_mask = (
+                (df["paper_clean"] == "Akron Beacon Journal (OH)") &
+                (df["year"] == 1986)
+            )
             if check_mask.any():
-                debug_val = (df.loc[check_mask, 'slant'] * df.loc[check_mask, 'used_terms']).sum()
-                print(f"\n[VERIFY] Found Akron 1986 in {f.name}. Partial Weighted Sum: {debug_val}")
+                debug_val = (df.loc[check_mask, "slant"] *
+                             df.loc[check_mask, "used_terms"]).sum()
+                print(f"\n[VERIFY] Akron 1986 in {f.name}: {debug_val}")
 
-            # --- 5. Calculate Weighted Slant ---
-            df['weighted_slant_sum'] = df['slant'] * df['used_terms']
+            # Weighted slant
+            df["weighted_slant_sum"] = df["slant"] * df["used_terms"]
 
-            # --- 6. Groupby & Aggregate ---
-            chunk_agg = df.groupby(['paper_clean', 'year']).agg(
-                n_articles=('slant', 'count'),
-                sum_weighted_slant=('weighted_slant_sum', 'sum'),
-                sum_weights=('used_terms', 'sum')
-            ).reset_index()
+            # Aggregate within file
+            chunk_agg = (
+                df.groupby(["paper_clean", "year"])
+                  .agg(
+                      n_articles=("slant", "count"),
+                      sum_weighted_slant=("weighted_slant_sum", "sum"),
+                      sum_weights=("used_terms", "sum")
+                  )
+                  .reset_index()
+            )
 
-            chunk_agg.rename(columns={'paper_clean': 'paper'}, inplace=True)
+            chunk_agg.rename(columns={"paper_clean": "paper"}, inplace=True)
             all_chunks.append(chunk_agg)
 
         except Exception as e:
@@ -98,24 +110,30 @@ def main():
         print("No data found.")
         return
 
-    # Combine All Chunks
+    # Combine all chunks
     print(">>> Combining all chunks...")
-    total_df = pd.concat(all_chunks)
-    final_df = total_df.groupby(['paper', 'year']).sum().reset_index()
+    total_df = pd.concat(all_chunks, ignore_index=True)
 
-    # Final Division
-    final_df = final_df[final_df['sum_weights'] > 0] # Avoid div by zero
-    final_df['slant_weighted'] = final_df['sum_weighted_slant'] / final_df['sum_weights']
+    final_df = (
+        total_df
+        .groupby(["paper", "year"], as_index=False)
+        .sum()
+    )
 
-    # Sort
-    final_df = final_df.sort_values(['paper', 'year'])
+    # Final weighted slant
+    final_df = final_df[final_df["sum_weights"] > 0]
+    final_df["slant_weighted"] = (
+        final_df["sum_weighted_slant"] / final_df["sum_weights"]
+    )
 
-    # Save
+    # Sort and save
+    final_df = final_df.sort_values(["paper", "year"])
+
     os.makedirs(OUTPUT_FILE.parent, exist_ok=True)
     final_df.to_csv(OUTPUT_FILE, index=False)
 
     print("-" * 50)
-    print(f"Aggregation Complete.")
+    print("Aggregation complete.")
     print(f"Saved to: {OUTPUT_FILE}")
     print("-" * 50)
 
