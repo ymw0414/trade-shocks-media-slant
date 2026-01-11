@@ -1,11 +1,20 @@
 """
 FILE: 07c_aggregate_slant_panel.py
 DESCRIPTION:
-    - Loads the final target list.
-    - Aggregates slant data from 1986 to 2004.
-    - FIX: Proper year filtering (1986–2004 only).
-    - Output: 'newspaper_panel_1986_2004.csv'
+    - Loads the final target newspaper list (final_target_papers.csv).
+    - Iterates over article-level slant files produced by 06_project_widmer.py
+      (news_slant_congress_*.parquet).
+    - Keeps ONLY articles classified as trade-related
+      (is_trade == 1, as defined in 06_project_widmer.py using stemmed
+       trade-vocabulary matching).
+    - Restricts the sample to articles published between 1986 and 2004 (inclusive).
+    - Harmonizes newspaper names using NAME_FIX_MAP.
+    - Keeps only newspapers in the final target list.
+    - Aggregates article-level slant to a newspaper–year panel using
+      used_terms-weighted averages.
+    - Output: data/analysis/newspaper_panel_1986_2004.csv
 """
+
 
 import os
 import pandas as pd
@@ -52,15 +61,24 @@ def main():
 
     for f in tqdm(files, desc="Processing files"):
         try:
-            # Load data
+            # --------------------------------------------------
+            # CHANGE 1: load is_trade
+            # --------------------------------------------------
             df = pd.read_parquet(
                 f,
-                columns=["paper", "date", "slant", "used_terms"]
+                columns=["paper", "date", "slant", "used_terms", "is_trade"]
             )
 
             # Extract and filter year (STRICT)
             df["year"] = pd.to_datetime(df["date"], errors="coerce").dt.year
             df = df[df["year"].between(MIN_YEAR, MAX_YEAR)]
+            if df.empty:
+                continue
+
+            # --------------------------------------------------
+            # CHANGE 2: trade filter
+            # --------------------------------------------------
+            df = df[df["is_trade"] == 1]
             if df.empty:
                 continue
 

@@ -65,6 +65,11 @@ def main():
     # 2. Filter National/Specialized Noise
     df = df[~df['paper_clean'].isin(DROP_LIST)]
 
+    # --------------------------------------------------
+    # 2.5 Exclude Alaska (CONUS only)
+    # --------------------------------------------------
+    df = df[~df['paper_clean'].str.contains(r'\(AK\)|Alaska', case=False, na=False)]
+
     # Filter by keywords to catch any remaining non-local/academic noise
     df = df[~df['paper_clean'].str.contains('University|College|Magazine|News Service', case=False, na=False)]
 
