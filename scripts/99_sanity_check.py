@@ -1,98 +1,55 @@
 # -------------------------------------------------------------------------
-# FILE: 99_sanity_check.py
-# DESC: Check column names and preview content of newspaper metadata files
-#       to identify the correct text column for classification.
+# FILE: create_classification_pipeline.py
+# DESCRIPTION:
+#   - Create classification pipeline structure for newspaper analysis
+#   - Generates folders and empty (or templated) Python files
 # -------------------------------------------------------------------------
 
 import os
-import argparse
-import pandas as pd
 from pathlib import Path
 
-# --------------------------------------------------
-# Arguments
-# --------------------------------------------------
+BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
+CLASS_DIR = BASE_DIR / "scripts" / "newspapers" / "classification"
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--congress", type=int, default=103, help="Congress number to check (default: 103)")
-args = parser.parse_args()
-CONGRESS = args.congress
+FILES = {
+    "01a_unsupervised_clustering.py": """# Unsupervised clustering (TF-IDF + KMeans)
+# Purpose: discover section-like structure (pre-1990 only)
+""",
+    "01b_cluster_interpretation.md": """# Cluster Interpretation Log
 
-# --------------------------------------------------
-# Paths
-# --------------------------------------------------
+Record conservative human interpretations here.
 
-# Check for environment variable, fallback to current directory if not set
-if "SHIFTING_SLANT_DIR" in os.environ:
-    BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-else:
-    # Assuming the script is run from the root or scripts folder if env is not set
-    BASE_DIR = Path(os.getcwd()).parent
-    print(f"(!) Warning: SHIFTING_SLANT_DIR not set. Using: {BASE_DIR}")
-
-# Path to the metadata file (where the text usually resides)
-META_NEWS = BASE_DIR / "data" / "processed" / "newspapers" / "bigrams" / f"meta_newspapers_congress_{CONGRESS}.parquet"
-
-
-# --------------------------------------------------
-# Main
-# --------------------------------------------------
+Example:
+- Cluster 2: ECON (clear)
+- Cluster 5: CRIME (clear)
+- Cluster 7: AMBIGUOUS (drop)
+""",
+    "02_train_econ_classifier.py": """# Train supervised econ vs non-econ classifier
+# Input: clusters approved in 01b
+""",
+    "03_apply_econ_classifier.py": """# Apply trained classifier to full 1986–2004 sample
+""",
+    "04_filter_econ_articles.py": """# Filter econ articles for downstream slant analysis
+"""
+}
 
 def main():
-    print(f"\n>>> [Sanity Check] Inspecting file for Congress {CONGRESS}")
-    print(f"    File: {META_NEWS}")
+    print("Creating classification pipeline structure...")
 
-    if not META_NEWS.exists():
-        print(f"\n[ERROR] File not found: {META_NEWS}")
-        print("Please check the congress number or file path.")
-        return
+    CLASS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load Parquet file
-    try:
-        df = pd.read_parquet(META_NEWS)
-    except Exception as e:
-        print(f"\n[ERROR] Failed to read parquet file: {e}")
-        return
-
-    # 1. Print All Column Names
-    print("\n" + "=" * 60)
-    print(f"DATA COLUMNS (Total: {len(df.columns)})")
-    print("=" * 60)
-    print(df.columns.tolist())
-
-    # 2. Preview String/Object Columns (To find the text body)
-    print("\n" + "=" * 60)
-    print("CONTENT PREVIEW (First 100 chars of string columns)")
-    print("=" * 60)
-
-    # Filter columns that are likely text (object type)
-    string_cols = df.select_dtypes(include=['object', 'string']).columns
-
-    found_text_candidate = False
-
-    for col in string_cols:
-        # Skip obviously non-text columns (like IDs) to keep output clean,
-        # but you can remove this if needed.
-        if "id" in col.lower() and "article" not in col.lower():
+    for fname, content in FILES.items():
+        fpath = CLASS_DIR / fname
+        if fpath.exists():
+            print(f"Exists, skipping: {fpath.name}")
             continue
 
-        try:
-            first_val = df[col].iloc[0]
-            preview = str(first_val)[:100].replace('\n', ' ')  # Remove newlines for clean display
+        with open(fpath, "w", encoding="utf-8") as f:
+            f.write(content)
 
-            print(f"[*] Column: '{col}'")
-            print(f"    Sample: {preview}...")
-            print("-" * 40)
+        print(f"Created: {fpath.name}")
 
-            found_text_candidate = True
-        except:
-            continue
-
-    if not found_text_candidate:
-        print("(!) No string columns found. Check if text is encoded or missing.")
-
-    print("\n>>> Check complete. Use the correct column name in '06_project_widmer.py'.")
-
+    print("Done.")
 
 if __name__ == "__main__":
     main()
