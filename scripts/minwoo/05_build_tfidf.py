@@ -228,68 +228,25 @@ def build_filter_sets(voteview_path):
 
 
 # ==================================================================
-# Helper: build the custom analyzer function
+# Helper: build the custom analyzer
 # ==================================================================
+# Import picklable TextAnalyzer class (allows joblib serialization)
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent))
+from text_analyzer import TextAnalyzer
+
+
 def build_analyzer(english_stops, geo_unigrams, blocked_bigrams):
     """
-    Return a callable analyzer for TfidfVectorizer.
+    Return a picklable callable analyzer for TfidfVectorizer.
 
-    Pipeline per document:
-      1. Lowercase
-      2. Remove parliamentary phrases
-      3. Tokenize (alpha only, >= 2 chars)
-      4. Remove english stop words (stemmed)
-      5. Remove geographic unigrams (stemmed)
-      6. Stem remaining tokens with Porter Stemmer
-      7. Form unigrams + bigrams
-      8. Filter blocked bigrams (geographic + legislator names)
+    Uses TextAnalyzer (a class with __call__) so that the fitted
+    vectorizer can be saved with joblib and loaded by other scripts.
     """
-    stemmer = PorterStemmer()
-    stem_cache = {}  # memoize: avoids re-stemming repeated tokens
-    token_re = re.compile(r"[a-z]+")
-
-    # Combine all parliamentary phrases into ONE regex (much faster than 40 loops)
-    parl_pattern = re.compile(
-        "|".join(re.escape(p) for p in PARLIAMENTARY_PHRASES),
-        re.IGNORECASE,
+    return TextAnalyzer(
+        single_stops=english_stops | geo_unigrams,
+        blocked_bigrams=blocked_bigrams,
     )
-
-    # Combined single-token stops: english + geographic (all stemmed)
-    single_stops = english_stops | geo_unigrams
-
-    def analyzer(doc):
-        # 1. Lowercase
-        text = doc.lower()
-
-        # 2. Remove parliamentary phrases (single pass)
-        text = parl_pattern.sub(" ", text)
-
-        # 3. Tokenize (alphabetic, >= 2 chars)
-        raw_tokens = token_re.findall(text)
-
-        # 4-6. Stem (cached), then filter stop words + geographic
-        stemmed = []
-        for t in raw_tokens:
-            if len(t) < 2:
-                continue
-            s = stem_cache.get(t)
-            if s is None:
-                s = stemmer.stem(t)
-                stem_cache[t] = s
-            if len(s) >= 2 and s not in single_stops:
-                stemmed.append(s)
-
-        # 7. Form unigrams + bigrams
-        features = list(stemmed)
-        for i in range(len(stemmed) - 1):
-            bg = stemmed[i] + " " + stemmed[i + 1]
-            # 8. Filter blocked bigrams
-            if bg not in blocked_bigrams:
-                features.append(bg)
-
-        return features
-
-    return analyzer
 
 
 # ==================================================================
@@ -352,25 +309,31 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
     print("\nFitting TF-IDF vectorizer (with Porter Stemmer + filtering) ...")
 
-    base_analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams)
+    analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams)
 
-    # Wrap analyzer with tqdm progress tracking
+    # Wrap with tqdm progress tracking (for display only)
     n_docs = len(agg)
     pbar = tqdm(total=n_docs * 2, desc="  TF-IDF (fit+transform)", unit="doc")
+    _orig_call = analyzer.__call__
 
-    def tracking_analyzer(doc):
-        result = base_analyzer(doc)
+    def _tracking_call(doc):
+        result = _orig_call(doc)
         pbar.update(1)
         return result
 
+    analyzer.__call__ = _tracking_call
+
     vectorizer = TfidfVectorizer(
-        analyzer=tracking_analyzer,
+        analyzer=analyzer,
         min_df=0.001,
         sublinear_tf=True,
     )
 
     tfidf_matrix = vectorizer.fit_transform(agg["text"])
     pbar.close()
+
+    # Restore original __call__ so the saved analyzer is clean
+    analyzer.__call__ = _orig_call
 
     elapsed = time.time() - pipeline_start
     print(f"  TF-IDF matrix shape: {tfidf_matrix.shape}")
