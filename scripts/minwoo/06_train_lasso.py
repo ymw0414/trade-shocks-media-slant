@@ -109,12 +109,16 @@ for wi, (cong_prev, cong_curr) in enumerate(WINDOWS, 1):
     # Results
     best_C = model.C_[0]
     train_acc = model.score(X, y)
+    # Mean CV accuracy for the best C across folds
+    best_c_idx = np.where(model.Cs_ == best_C)[0][0]
+    cv_scores = model.scores_[1][:, best_c_idx]  # class 1, all folds, best C
+    cv_acc = cv_scores.mean()
     n_nonzero = int(np.sum(model.coef_[0] != 0))
     n_positive = int(np.sum(model.coef_[0] > 0))
     n_negative = int(np.sum(model.coef_[0] < 0))
 
     print(f"  Best C: {best_C:.4f}")
-    print(f"  Train accuracy: {train_acc:.3f}")
+    print(f"  Train accuracy: {train_acc:.3f}  |  CV accuracy: {cv_acc:.3f}")
     print(f"  Non-zero coefs: {n_nonzero:,}  (+{n_positive:,} / -{n_negative:,})")
 
     # Save model
@@ -134,6 +138,7 @@ for wi, (cong_prev, cong_curr) in enumerate(WINDOWS, 1):
         "n_dem_core": n_dem,
         "best_C": best_C,
         "train_accuracy": train_acc,
+        "cv_accuracy": cv_acc,
         "n_nonzero_coefs": n_nonzero,
         "n_positive_coefs": n_positive,
         "n_negative_coefs": n_negative,
