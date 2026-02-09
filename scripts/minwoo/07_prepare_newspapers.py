@@ -22,6 +22,7 @@ Outputs (per congress):
   - data/processed/newspapers/minwoo/07_newspaper_meta_cong_{cong}.parquet
 """
 
+import gc
 import os
 import sys
 import time
@@ -50,14 +51,12 @@ OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
 # ------------------------------------------------------------------
 # Year-to-Congress mapping
 # ------------------------------------------------------------------
-YEAR_TO_CONGRESS = {}
+CONGRESS_YEARS = {}
 for cong in range(100, 109):
     year1 = 1787 + (cong * 2)
-    year2 = year1 + 1
-    YEAR_TO_CONGRESS[year1] = cong
-    YEAR_TO_CONGRESS[year2] = cong
+    CONGRESS_YEARS[cong] = (year1, year1 + 1)
 
-N_JOBS = -1  # use all CPU cores; set to 1 to disable parallelism
+N_JOBS = 8  # parallel workers per congress; lower = less memory
 
 
 def _transform_chunk(vectorizer, texts):
@@ -77,74 +76,100 @@ if __name__ == "__main__":
     n_cores = max(1, joblib.cpu_count() or 1) if N_JOBS == -1 else max(1, N_JOBS)
     print(f"  Using {n_cores} CPU cores for parallel transform")
 
-    # 2. Load articles, grouped by congress
-    congress_articles = {}
-
-    for year in range(1987, 2005):
-        cong = YEAR_TO_CONGRESS[year]
-        parquet_path = NEWSPAPER_DIR / f"newspapers_{year}.parquet"
-
-        if not parquet_path.exists():
-            print(f"  WARNING: {parquet_path.name} not found, skipping")
-            continue
-
-        df = pd.read_parquet(parquet_path)
-        df["year"] = year
-        df["congress"] = cong
-
-        congress_articles.setdefault(cong, []).append(df)
-        print(f"  Loaded {year}: {len(df):,} articles -> Congress {cong}")
-
-    # 3. Transform and save per congress
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    # 2. First pass: count articles per congress (for progress bar)
+    congress_counts = {}
+    congresses = sorted(CONGRESS_YEARS.keys())
+
+    for cong in congresses:
+        year1, year2 = CONGRESS_YEARS[cong]
+        total = 0
+        for year in (year1, year2):
+            p = NEWSPAPER_DIR / f"newspapers_{year}.parquet"
+            if p.exists():
+                total += pd.read_parquet(p, columns=["paper"]).shape[0]
+        congress_counts[cong] = total
+
+    grand_total = sum(congress_counts.values())
+    print(f"\n  Total articles across all congresses: {grand_total:,}")
+
+    # 3. Process one congress at a time (load -> transform -> save -> free)
     print("\nTransforming newspaper text ...")
-    total = len(congress_articles)
     pipeline_start = time.time()
+    total = len(congresses)
+    pbar = tqdm(total=grand_total, desc="  TF-IDF transform", unit="doc")
 
-    # Count total articles for the overall progress bar
-    total_articles = sum(
-        sum(len(df) for df in dfs)
-        for dfs in congress_articles.values()
-    )
-    pbar = tqdm(total=total_articles, desc="  TF-IDF transform", unit="doc")
+    summary = []
 
-    for i, (cong, dfs) in enumerate(sorted(congress_articles.items()), 1):
+    for i, cong in enumerate(congresses, 1):
         window_start = time.time()
+        year1, year2 = CONGRESS_YEARS[cong]
+
+        # Load only this congress's years
+        dfs = []
+        for year in (year1, year2):
+            p = NEWSPAPER_DIR / f"newspapers_{year}.parquet"
+            if not p.exists():
+                print(f"  WARNING: {p.name} not found, skipping")
+                continue
+            df = pd.read_parquet(p)
+            df["year"] = year
+            df["congress"] = cong
+            dfs.append(df)
+
+        if not dfs:
+            continue
+
         articles = pd.concat(dfs, ignore_index=True)
+        del dfs
         articles = articles.dropna(subset=["text"])
 
-        texts = articles["text"].values
+        # Combine title + text
+        texts = (articles["title"].fillna("") + " " + articles["text"]).values
         n_docs = len(texts)
 
+        # Save metadata before freeing the full dataframe
+        meta = articles[["date", "paper", "title", "word_count", "year", "congress"]].reset_index(drop=True)
+        n_papers = articles["paper"].nunique()
+        del articles
+        gc.collect()
+
+        # Transform
         if n_cores == 1 or n_docs < 1000:
-            # Single-process path
             tfidf = vectorizer.transform(texts)
         else:
-            # Split into chunks, transform in parallel, vstack
             chunks = np.array_split(texts, min(n_cores, n_docs))
             chunks = [c for c in chunks if len(c) > 0]
+            del texts
+            gc.collect()
 
             results = Parallel(n_jobs=N_JOBS)(
                 delayed(_transform_chunk)(vectorizer, chunk)
                 for chunk in chunks
             )
+            del chunks
             tfidf = sp.vstack(results, format="csr")
+            del results
+            gc.collect()
 
         pbar.update(n_docs)
 
+        # Save
         sp.save_npz(OUT_DIR / f"07_newspaper_tfidf_cong_{cong}.npz", tfidf)
-
-        meta = articles[["date", "paper", "title", "word_count", "year", "congress"]].reset_index(drop=True)
         meta.to_parquet(OUT_DIR / f"07_newspaper_meta_cong_{cong}.parquet")
 
         elapsed = time.time() - window_start
         total_elapsed = time.time() - pipeline_start
         avg_per = total_elapsed / i
         remaining = avg_per * (total - i)
-        n_papers = articles["paper"].nunique()
-        pbar.write(f"  [{i}/{total}] Congress {cong}: {len(articles):,} articles from "
+        pbar.write(f"  [{i}/{total}] Congress {cong}: {n_docs:,} articles from "
                    f"{n_papers} papers, TF-IDF {tfidf.shape}  |  {elapsed:.1f}s  |  ETA: {remaining:.0f}s")
+
+        summary.append((cong, year1, year1 + 1, n_docs, n_papers))
+
+        del tfidf, meta
+        gc.collect()
 
     pbar.close()
 
@@ -153,13 +178,9 @@ if __name__ == "__main__":
     print("SUMMARY: Newspaper articles per congress")
     print("=" * 72)
 
-    for cong in sorted(congress_articles.keys()):
-        dfs = congress_articles[cong]
-        total_articles = sum(len(df) for df in dfs)
-        years = sorted(set(y for df in dfs for y in df["year"].unique()))
-        n_papers = len(set(p for df in dfs for p in df["paper"].unique()))
-        print(f"  Congress {cong} ({years[0]}-{years[-1]}): "
-              f"{total_articles:,} articles from {n_papers} papers")
+    for cong, y1, y2, n_articles, n_papers in summary:
+        print(f"  Congress {cong} ({y1}-{y2}): "
+              f"{n_articles:,} articles from {n_papers} papers")
 
     print("=" * 72)
     print(f"\nSaved to -> {OUT_DIR}")

@@ -4,3 +4,6 @@
 # allow scripts folder
 !scripts/
 !scripts/**
+
+# but ignore Python bytecode cache
+__pycache__/
