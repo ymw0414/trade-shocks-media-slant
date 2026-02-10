@@ -13,6 +13,14 @@ Model design:
   Non-core legislators are excluded from training.
   This learns the language that best distinguishes each party's brand.
 
+Vocabulary restriction (Widmer et al. 2025):
+  Before training, the feature space is restricted to the INTERSECTION of
+  congressional speech vocabulary and newspaper vocabulary.  This ensures
+  LASSO selects only phrases that are (a) partisan in Congress AND (b) actually
+  observable in newspaper text.  Procedural language, legislator-specific
+  references, and other congressional jargon that never appears in newspapers
+  are automatically excluded.
+
 At inference time, the learned coefficients can be decomposed:
   - Positive coefficients  -> Right Intensity
   - Negative coefficients  -> Left Intensity
@@ -22,6 +30,7 @@ At inference time, the learned coefficients can be decomposed:
 
 Outputs per window:
   - Trained model (LogisticRegressionCV with L1 penalty)
+  - Intersection column indices (06_intersection_cols.npy)
 """
 
 import os
@@ -41,6 +50,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 PROC_DIR = BASE_DIR / "data" / "processed" / "speeches"
+NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 TFIDF_PATH = PROC_DIR / "05_tfidf_matrix.npz"
 META_PATH = PROC_DIR / "05_tfidf_meta.parquet"
@@ -56,7 +66,51 @@ X_all = sp.load_npz(TFIDF_PATH)
 print("Loading metadata ...")
 meta = pd.read_parquet(META_PATH)
 
-print(f"  Matrix: {X_all.shape[0]:,} docs x {X_all.shape[1]:,} features")
+n_full_features = X_all.shape[1]
+print(f"  Matrix: {X_all.shape[0]:,} docs x {n_full_features:,} features")
+
+# ------------------------------------------------------------------
+# 1b. Compute intersection with newspaper vocabulary
+# ------------------------------------------------------------------
+print("\nComputing speech-newspaper vocabulary intersection ...")
+
+# Find columns that have any non-zero value in ANY newspaper TF-IDF matrix
+newspaper_feature_mask = np.zeros(n_full_features, dtype=bool)
+for cong in range(100, 109):
+    tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong}.npz"
+    if not tfidf_path.exists():
+        print(f"  WARNING: {tfidf_path.name} not found, skipping")
+        continue
+    nX = sp.load_npz(tfidf_path)
+    # For CSR matrix, find columns with any non-zero entry
+    col_nnz = np.diff(nX.tocsc().indptr)  # number of non-zeros per column
+    newspaper_feature_mask |= (col_nnz > 0)
+    n_active = newspaper_feature_mask.sum()
+    print(f"  Congress {cong}: {nX.shape[0]:,} articles, "
+          f"cumulative newspaper features: {n_active:,}")
+    del nX
+    import gc; gc.collect()
+
+# Also find columns with any non-zero value in speech TF-IDF
+speech_col_nnz = np.diff(X_all.tocsc().indptr)
+speech_feature_mask = (speech_col_nnz > 0)
+
+# Intersection: features that appear in BOTH corpora
+intersection_mask = newspaper_feature_mask & speech_feature_mask
+intersection_cols = np.where(intersection_mask)[0]
+n_intersection = len(intersection_cols)
+
+print(f"\n  Speech features (non-zero): {speech_feature_mask.sum():,}")
+print(f"  Newspaper features (non-zero): {newspaper_feature_mask.sum():,}")
+print(f"  Intersection features: {n_intersection:,}")
+print(f"  Dropped (speech-only): {speech_feature_mask.sum() - n_intersection:,}")
+
+# Save intersection column indices for use in step 08
+np.save(OUT_DIR / "06_intersection_cols.npy", intersection_cols)
+
+# Restrict speech TF-IDF to intersection columns
+X_all = X_all[:, intersection_cols]
+print(f"  Restricted matrix: {X_all.shape[0]:,} docs x {X_all.shape[1]:,} features")
 
 # ------------------------------------------------------------------
 # 2. Define rolling windows

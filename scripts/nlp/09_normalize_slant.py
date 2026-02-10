@@ -88,6 +88,13 @@ if __name__ == "__main__":
     speech_meta = pd.read_parquet(SPEECH_META_PATH)
     print(f"  Speeches: {X_speech.shape[0]:,} legislators x {X_speech.shape[1]:,} features")
 
+    # Restrict to intersection columns (from step 06)
+    intersection_path = MODEL_DIR / "06_intersection_cols.npy"
+    if intersection_path.exists():
+        intersection_cols = np.load(intersection_path)
+        X_speech = X_speech[:, intersection_cols]
+        print(f"  Restricted to intersection: {X_speech.shape[1]:,} features")
+
     print("\nComputing normalization parameters and normalizing ...\n")
 
     pipeline_start = time.time()

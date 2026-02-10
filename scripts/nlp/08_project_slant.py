@@ -57,6 +57,16 @@ if __name__ == "__main__":
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    # Load intersection column indices (from step 06)
+    intersection_path = MODEL_DIR / "06_intersection_cols.npy"
+    if intersection_path.exists():
+        intersection_cols = np.load(intersection_path)
+        print(f"Loaded intersection columns: {len(intersection_cols):,} features")
+        use_intersection = True
+    else:
+        print("WARNING: 06_intersection_cols.npy not found, using full feature space")
+        use_intersection = False
+
     print("Projecting LASSO coefficients onto newspaper TF-IDF ...\n")
 
     pipeline_start = time.time()
@@ -71,20 +81,23 @@ if __name__ == "__main__":
             print(f"  WARNING: {model_path.name} not found, skipping")
             continue
         model = joblib.load(model_path)
-        coef = model.coef_[0]  # shape (n_features,)
+        coef = model.coef_[0]  # shape (n_intersection_features,)
 
         pos_mask = coef > 0
         neg_mask = coef < 0
         n_pos = pos_mask.sum()
         n_neg = neg_mask.sum()
 
-        # 2. Load newspaper TF-IDF
+        # 2. Load newspaper TF-IDF (restrict to intersection columns)
         tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
         if not tfidf_path.exists():
             print(f"  WARNING: {tfidf_path.name} not found, skipping")
             continue
         X = sp.load_npz(tfidf_path)
         n_articles = X.shape[0]
+
+        if use_intersection:
+            X = X[:, intersection_cols]
 
         # 3. Compute scores
         right_intensity = X[:, pos_mask].dot(coef[pos_mask])
