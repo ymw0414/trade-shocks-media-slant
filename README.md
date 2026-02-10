@@ -69,7 +69,7 @@ Scripts are designed to be run sequentially by step number. Each script reads fr
 Not included in this repository. Raw data sources:
 
 - **Congressional Record**: Hein-Bound (Gentzkow, Shapiro & Taddy)
-- **Newspaper articles**: NewsLibrary / ProQuest
+- **Newspaper articles**: NewsLibrary
 - **Trade data**: USITC, Feenstra (1996), UN Comtrade
 - **Employment**: County Business Patterns (CBP)
 - **China shock**: Autor, Dorn & Hanson (2013)
