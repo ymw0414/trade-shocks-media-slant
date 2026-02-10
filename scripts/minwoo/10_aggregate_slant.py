@@ -1,7 +1,7 @@
 """
-09_aggregate_slant.py
+10_aggregate_slant.py
 
-Merge article-level slant scores (step 08) with labels (step 04),
+Merge normalized article-level slant scores (step 09) with labels (step 04),
 filter, and aggregate into a newspaper-year panel dataset.
 
 Filtering:
@@ -16,9 +16,14 @@ Dual-track aggregation:
   Track B (Economic Slant):
     Mean slant of top-10% most "economic" articles (by econ_score)
     per newspaper-year. Isolates bias in economic/factual coverage.
+    The p90 econ_score threshold is computed per congress (since
+    econ_score distributions vary by congress).
 
-  The p90 econ_score threshold is computed per congress (since
-  econ_score distributions vary by congress).
+  Extensive margin:
+    econ_share = fraction of news articles with econ_score > 0
+    (article contains at least one economy seed stem).
+    Captures whether newspapers respond to shocks by writing MORE
+    about economics (extensive) vs changing slant (intensive).
 
 Grouping:
   newspaper × year (not congress) — aligns with yearly economic and
@@ -26,10 +31,10 @@ Grouping:
 
 Inputs:
   - data/processed/newspapers/minwoo/04_newspaper_labeled_cong_{cong}.parquet
-  - data/processed/newspapers/minwoo/08_article_slant_cong_{cong}.parquet
+  - data/processed/newspapers/minwoo/09_article_slant_norm_cong_{cong}.parquet
 
 Outputs:
-  - data/processed/newspapers/minwoo/09_newspaper_year_panel.parquet
+  - data/processed/newspapers/minwoo/10_newspaper_year_panel.parquet
 """
 
 import gc
@@ -48,7 +53,9 @@ OUT_DIR = NEWSPAPER_DIR
 
 ECON_PERCENTILE = 90  # top 10%
 
-SLANT_COLS = ["right_intensity", "left_intensity", "net_slant", "politicization"]
+SLANT_COLS_RAW = ["right_intensity", "left_intensity", "net_slant", "politicization"]
+SLANT_COLS_NORM = ["right_norm", "left_norm", "net_slant_norm", "politicization_norm"]
+SLANT_COLS = SLANT_COLS_RAW + SLANT_COLS_NORM
 
 
 # ==================================================================
@@ -65,7 +72,7 @@ if __name__ == "__main__":
 
     for cong in congresses:
         label_path = NEWSPAPER_DIR / f"04_newspaper_labeled_cong_{cong}.parquet"
-        slant_path = NEWSPAPER_DIR / f"08_article_slant_cong_{cong}.parquet"
+        slant_path = NEWSPAPER_DIR / f"09_article_slant_norm_cong_{cong}.parquet"
 
         if not label_path.exists() or not slant_path.exists():
             print(f"  WARNING: Congress {cong} files not found, skipping")
@@ -93,15 +100,20 @@ if __name__ == "__main__":
         print(f"  Congress {cong}: {n_total:,} total -> {n_news:,} news -> "
               f"{n_econ:,} econ (p{ECON_PERCENTILE} >= {econ_threshold:.4f})")
 
+        # Extensive margin: flag articles with any economy content
+        df["is_econ"] = df["econ_score"] > 0
+
         # Track A: General — all news articles, grouped by paper × year
         general_agg = (
             df.groupby(["paper", "year"])
             .agg(
                 n_articles=("net_slant", "count"),
+                n_econ_any=("is_econ", "sum"),
                 **{f"{col}": (col, "mean") for col in SLANT_COLS},
             )
             .reset_index()
         )
+        general_agg["econ_share"] = general_agg["n_econ_any"] / general_agg["n_articles"]
         general_chunks.append(general_agg)
 
         # Track B: Economic — top 10% by econ_score, grouped by paper × year
@@ -131,7 +143,7 @@ if __name__ == "__main__":
     panel = panel.sort_values(["paper", "year"]).reset_index(drop=True)
 
     # Save
-    out_path = OUT_DIR / "09_newspaper_year_panel.parquet"
+    out_path = OUT_DIR / "10_newspaper_year_panel.parquet"
     panel.to_parquet(out_path)
 
     elapsed = time.time() - pipeline_start
@@ -148,31 +160,37 @@ if __name__ == "__main__":
     print(f"  Year range: {panel['year'].min()} - {panel['year'].max()}")
 
     print(f"\n  Track A (General):")
-    print(f"    Total news articles: {panel['n_articles'].sum():,}")
-    print(f"    Mean net_slant:      {panel['net_slant'].mean():.4f}")
-    print(f"    Std net_slant:       {panel['net_slant'].std():.4f}")
+    print(f"    Total news articles:   {panel['n_articles'].sum():,}")
+    print(f"    Mean net_slant_norm:   {panel['net_slant_norm'].mean():.4f}")
+    print(f"    Std net_slant_norm:    {panel['net_slant_norm'].std():.4f}")
+
+    print(f"\n  Extensive margin (econ_share = articles with econ_score > 0):")
+    print(f"    Mean econ_share:       {panel['econ_share'].mean():.4f}")
+    print(f"    Std econ_share:        {panel['econ_share'].std():.4f}")
 
     n_with_econ = panel["n_articles_econ"].notna().sum()
     print(f"\n  Track B (Economic):")
-    print(f"    Paper-years with econ articles: {n_with_econ:,} / {len(panel):,}")
+    print(f"    Paper-years with econ: {n_with_econ:,} / {len(panel):,}")
     if n_with_econ > 0:
-        print(f"    Total econ articles: {panel['n_articles_econ'].sum():,.0f}")
-        print(f"    Mean net_slant_econ: {panel['net_slant_econ'].mean():.4f}")
-        print(f"    Std net_slant_econ:  {panel['net_slant_econ'].std():.4f}")
+        print(f"    Total econ articles:   {panel['n_articles_econ'].sum():,.0f}")
+        print(f"    Mean net_slant_norm:   {panel['net_slant_norm_econ'].mean():.4f}")
+        print(f"    Std net_slant_norm:    {panel['net_slant_norm_econ'].std():.4f}")
 
     # Per-year summary
     print(f"\n  Per-year averages:")
     yearly = panel.groupby("year").agg(
         papers=("paper", "nunique"),
         articles=("n_articles", "sum"),
-        net_slant=("net_slant", "mean"),
-        politicization=("politicization", "mean"),
+        net_slant_norm=("net_slant_norm", "mean"),
+        politicization_norm=("politicization_norm", "mean"),
+        econ_share=("econ_share", "mean"),
     )
     for year, row in yearly.iterrows():
         print(f"    {year}: {row['papers']:>3} papers  "
               f"{row['articles']:>9,.0f} articles  "
-              f"net_slant={row['net_slant']:>7.4f}  "
-              f"politic={row['politicization']:.4f}")
+              f"slant_norm={row['net_slant_norm']:>7.3f}  "
+              f"politic_norm={row['politicization_norm']:.3f}  "
+              f"econ_share={row['econ_share']:.3f}")
 
     print(f"\n  Total time: {elapsed:.1f}s")
     print(f"  Saved to -> {out_path}")
