@@ -32,7 +32,7 @@ FIG_DIR = BASE_DIR / "output" / "figures"
 TAB_DIR = BASE_DIR / "output" / "tables"
 
 BASE_YEAR = 1993  # Last pre-NAFTA year (following Choi et al. 2024)
-END_YEAR = 2000   # Exclude China shock period (PNTR 2000, WTO 2001)
+END_YEAR = 2004   # Extended sample; China shock controlled in spec 2
 
 # State FIPS -> Census Division mapping
 STATE_TO_DIVISION = {
@@ -120,24 +120,24 @@ def run_event_study(df, depvar, years, label):
 
 def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     """Plot event-study with baseline and controlled specifications."""
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 6))
 
     yrs = coefs_base["year"].values
-    offset = 0.12
+    offset = 0.15
 
     # Baseline
     ax.errorbar(yrs - offset, coefs_base["coef"],
                 yerr=[coefs_base["coef"] - coefs_base["ci_lo"],
                       coefs_base["ci_hi"] - coefs_base["coef"]],
-                fmt="o", color="#cb181d", markersize=5, capsize=3,
-                linewidth=1.2, label="Baseline")
+                fmt="o", color="#cb181d", markersize=4, capsize=2.5,
+                linewidth=1.0, label="Baseline")
 
     # With controls
     ax.errorbar(yrs + offset, coefs_ctrl["coef"],
                 yerr=[coefs_ctrl["coef"] - coefs_ctrl["ci_lo"],
                       coefs_ctrl["ci_hi"] - coefs_ctrl["coef"]],
-                fmt="s", color="#2171b5", markersize=5, capsize=3,
-                linewidth=1.2, label="+ China shock, manushare")
+                fmt="s", color="#2171b5", markersize=4, capsize=2.5,
+                linewidth=1.0, label="+ China shock, manushare")
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
@@ -147,19 +147,21 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
     ax.set_title(f"Event Study: {depvar_label}", fontsize=14, fontweight="bold")
     ax.legend(fontsize=10, framealpha=0.9)
-    ax.set_xticks(yrs)
-    ax.set_xticklabels(yrs, rotation=45, fontsize=9)
+    ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
+    ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
+                        fontsize=10)
+    ax.set_xlim(yrs[0] - 0.7, yrs[-1] + 0.7)
     ax.grid(axis="y", alpha=0.3)
 
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor="white")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05, facecolor="white")
     plt.close(fig)
     print(f"    Saved: {out_path}")
 
 
 def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
     """Plot right and left intensity on the same axes (controlled spec)."""
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(12, 6))
 
     yrs = coefs_right["year"].values
     offset = 0.15
@@ -167,14 +169,14 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
     ax.errorbar(yrs - offset, coefs_right["coef"],
                 yerr=[coefs_right["coef"] - coefs_right["ci_lo"],
                       coefs_right["ci_hi"] - coefs_right["coef"]],
-                fmt="o", color="#cb181d", markersize=5, capsize=3,
-                linewidth=1.2, label="Right Intensity")
+                fmt="o", color="#cb181d", markersize=4, capsize=2.5,
+                linewidth=1.0, label="Right Intensity")
 
     ax.errorbar(yrs + offset, coefs_left["coef"],
                 yerr=[coefs_left["coef"] - coefs_left["ci_lo"],
                       coefs_left["ci_hi"] - coefs_left["coef"]],
-                fmt="s", color="#2171b5", markersize=5, capsize=3,
-                linewidth=1.2, label="Left Intensity")
+                fmt="s", color="#2171b5", markersize=4, capsize=2.5,
+                linewidth=1.0, label="Left Intensity")
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
@@ -184,12 +186,14 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
     ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
     ax.set_title(f"Event Study: {title}", fontsize=14, fontweight="bold")
     ax.legend(fontsize=10, framealpha=0.9)
-    ax.set_xticks(yrs)
-    ax.set_xticklabels(yrs, rotation=45, fontsize=9)
+    ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
+    ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
+                        fontsize=10)
+    ax.set_xlim(yrs[0] - 0.7, yrs[-1] + 0.7)
     ax.grid(axis="y", alpha=0.3)
 
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=200, bbox_inches="tight", facecolor="white")
+    fig.tight_layout(pad=0.3)
+    fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05, facecolor="white")
     plt.close(fig)
     print(f"    Saved: {out_path}")
 

@@ -5,15 +5,16 @@ Build a uniform TF-IDF matrix from congressional speeches (Congresses 99-108)
 with comprehensive text preprocessing to isolate genuine partisan language.
 
 Preprocessing pipeline:
-  1. Remove parliamentary procedure phrases from raw text
+  1. Remove parliamentary procedure phrases from raw text (expanded list)
   2. Tokenize (lowercase, alphabetic tokens >= 2 chars)
   3. Remove English stop words (sklearn default list)
-  4. Remove geographic terms (state names, major cities, state abbreviations)
-  5. Apply Porter Stemmer to all remaining tokens
-  6. Form unigrams and bigrams
-  7. Filter out legislator full-name bigrams (stemmed)
-     (Individual name tokens are NOT removed -- many are common words
-      like "young", "brown", "price", "bill")
+  4. Remove procedural/legal stop words (thereto, thereof, hereby, etc.)
+  5. Remove geographic terms (state names, major cities, state abbreviations)
+  6. Remove distinctive legislator name tokens (stemmed surnames that are
+     NOT common English words, e.g. "dannemeyer" but NOT "young")
+  7. Apply Porter Stemmer to all remaining tokens
+  8. Form unigrams and bigrams
+  9. Filter out legislator full-name bigrams, including nicknames (stemmed)
 
 Steps:
   1. Load speech text (01) and partisan-core labels (04).
@@ -56,9 +57,10 @@ OUT_META = OUT_DIR / "05_tfidf_meta.parquet"
 OUT_VECTORIZER = OUT_DIR / "05_tfidf_vectorizer.joblib"
 
 # ------------------------------------------------------------------
-# Parliamentary procedure phrases to remove
+# Parliamentary procedure phrases to remove (must match text_analyzer.py)
 # ------------------------------------------------------------------
 PARLIAMENTARY_PHRASES = [
+    # --- Yielding time ---
     "i yield back the balance of my time",
     "i yield back",
     "i yield to the gentleman",
@@ -67,6 +69,10 @@ PARLIAMENTARY_PHRASES = [
     "i yield myself such time as i may consume",
     "i yield myself the balance of my time",
     "reclaiming my time",
+    "i yield to",
+    "the gentleman yields",
+    "the gentlewoman yields",
+    # --- Forms of address ---
     "mr speaker",
     "mr chairman",
     "mr president",
@@ -80,27 +86,155 @@ PARLIAMENTARY_PHRASES = [
     "my distinguished colleague",
     "my good friend",
     "the chair recognizes",
+    "the speaker pro tempore",
+    "the speaker announced",
+    "the speaker appoints",
+    "the speaker laid before the house",
+    # --- Pursuant / rules ---
     "pursuant to house rule",
     "pursuant to clause",
     "pursuant to the rule",
     "pursuant to the order",
+    "pursuant to the provisions",
+    # --- Unanimous consent ---
     "i ask unanimous consent",
     "without objection so ordered",
+    "without objection",
+    # --- Questions and voting ---
     "the question is on",
     "the yeas and nays are ordered",
     "the previous question is ordered",
+    "the previous question",
+    "the question was taken",
+    "the question recurs",
+    "i demand a recorded vote",
+    "a recorded vote is demanded",
+    "demand a recorded vote",
+    "i demand a second",
+    "demand a second",
+    "the yeas and nays",
+    "a recorded vote",
+    "a rollcall vote",
+    "by a recorded vote",
+    "on this vote",
+    # --- Rising ---
     "i rise today",
     "i rise in support",
     "i rise in opposition",
+    "i rise to",
+    # --- Reserving time ---
     "i reserve the balance of my time",
+    # --- Record ---
     "under a previous order of the house",
     "i include for the record",
     "i insert for the record",
     "permission to revise and extend",
+    "revise and extend my remarks",
     "i move to strike the last word",
+    # --- Time expiration ---
     "the time of the gentleman has expired",
     "the time of the gentlewoman has expired",
+    # --- Motions ---
+    "motion to table",
+    "motion to reconsider",
+    "motion to recommit",
+    "motion to suspend the rules",
+    "motion to instruct conferees",
+    "i move to suspend the rules",
+    "i offer a motion",
+    "suspend the rules and pass",
+    "suspend the rules and agree",
+    "suspend the rules and concur",
+    # --- Amendments ---
+    "amendment thereto",
+    "amendments thereto",
+    "amendment offered by",
+    "amendment in the nature of a substitute",
+    "for the purpose of amendment",
+    "purpose of the amendment",
+    "amendment to the amendment",
+    # --- Extensions and leaves ---
+    "extension of remarks",
+    "leave to extend",
+    "leave to revise and extend",
+    "general leave",
+    "leave of absence",
+    # --- Committee procedures ---
+    "permit the committee to sit",
+    "permitted to sit",
+    "the committee on rules",
+    "reported the bill",
+    "ordered to be reported",
+    # --- Objections / reservations ---
+    "is there objection",
+    "objection is heard",
+    "hearing none",
+    "reserving the right to object",
+    "i reserve the right to object",
+    "i withdraw my reservation",
+    # --- Ordering / printing ---
+    "so ordered",
+    "ordered to be printed",
+    "ordered to lie on the table",
+    "engrossment and third reading",
+    "a quorum is present",
+    "a quorum is not present",
+    # --- Clerk ---
+    "the clerk will read",
+    "the clerk will report",
+    "the clerk will call the roll",
+    "the clerk read",
+    "the clerk reported",
+    "the roll was called",
+    # --- One-minute / special order ---
+    "one minute speech",
+    "one minute speeches",
+    "morning hour",
+    "special order",
+    "special orders",
+    # --- Further proceedings ---
+    "further proceedings",
+    "further reading",
 ]
+
+# ------------------------------------------------------------------
+# Procedural stop words (legal/parliamentary terms, no partisan content)
+# ------------------------------------------------------------------
+PROCEDURAL_STOP_WORDS = [
+    "thereto", "thereof", "hereby", "herein", "herewith",
+    "whereas", "aforesaid", "notwithstanding", "therein",
+    "heretofore", "hereunder", "thereunder", "thereupon",
+    "whereupon", "inasmuch", "wherefor",
+]
+
+# ------------------------------------------------------------------
+# Common English words that are also legislator surnames -- keep as
+# valid tokens (do NOT block as distinctive name tokens)
+# ------------------------------------------------------------------
+COMMON_ENGLISH_WORDS_ALSO_NAMES = {
+    "archer", "baker", "barr", "bass", "bell", "berry", "bishop",
+    "bland", "blunt", "bond", "brown", "camp", "castle", "chase",
+    "church", "clay", "close", "cole", "collins", "cook", "cox",
+    "crane", "cross", "dale", "deal", "dear", "dick", "duke",
+    "early", "edge", "english", "fast", "fields", "fish", "flood",
+    "ford", "foster", "fox", "frank", "free", "frost", "gore",
+    "grant", "gray", "green", "hall", "hand", "hare", "hart",
+    "hawk", "hay", "hill", "holt", "hook", "hope", "horn", "house",
+    "hunter", "hyde", "keen", "king", "lane", "large", "lewis",
+    "light", "long", "love", "mark", "marsh", "martin", "mason",
+    "may", "miller", "minor", "mock", "moore", "moss", "neal",
+    "nelson", "park", "penny", "porter", "post", "price", "ray",
+    "reed", "rich", "ring", "rose", "rush", "sage", "sharp",
+    "shepherd", "short", "silver", "singer", "small", "smith",
+    "spring", "stark", "steel", "stone", "strong", "sweet", "swift",
+    "taylor", "thomas", "thorn", "turner", "walker", "walsh", "ward",
+    "warren", "waters", "watt", "webb", "well", "west", "white",
+    "winter", "wise", "wolf", "wood", "wright", "young",
+    "barton", "burton", "davis", "edwards", "evans", "harris",
+    "jackson", "johnson", "jones", "lee", "martinez", "rogers",
+    "wilson", "thompson", "robinson", "brooks", "flowers", "power",
+    "savage", "owens", "watts", "towns",
+}
 
 # ------------------------------------------------------------------
 # US state names (including multi-word)
@@ -163,6 +297,10 @@ def build_filter_sets(voteview_path):
     # --- English stop words (stemmed) ---
     english_stops_stemmed = {stemmer.stem(w) for w in ENGLISH_STOP_WORDS}
 
+    # --- Procedural stop words (stemmed) ---
+    procedural_stops_stemmed = {stemmer.stem(w) for w in PROCEDURAL_STOP_WORDS}
+    english_stops_stemmed |= procedural_stops_stemmed
+
     # --- Geographic unigrams (stemmed single-word names + abbreviations) ---
     geo_unigrams_stemmed = set()
     for name in STATE_NAMES + MAJOR_CITIES:
@@ -188,11 +326,13 @@ def build_filter_sets(voteview_path):
         & (voteview["chamber"] == "House")
     ]
 
-    # Only filter full-name bigrams, NOT individual name tokens.
-    # Many legislators share common surnames (Young, Brown, Price, Long)
-    # that would incorrectly remove real words like "young voters" or
-    # "price controls".
+    # Build safe-name stems: common English words that also happen to be
+    # legislator surnames.  These should NOT be blocked as stop words.
+    safe_name_stems = {stemmer.stem(w) for w in COMMON_ENGLISH_WORDS_ALSO_NAMES}
+    safe_name_stems |= english_stops_stemmed  # stop words already filtered
+
     legislator_bigrams_stemmed = set()
+    distinctive_name_tokens = set()
 
     for bioname in house["bioname"].dropna().unique():
         # bioname format: "LASTNAME, Firstname Middle (Nickname), Suffix"
@@ -201,30 +341,55 @@ def build_filter_sets(voteview_path):
             continue
         lastname = parts[0].strip().lower()
         firstname_part = parts[1].strip().lower()
-        # Extract first token of firstname (ignore middle/nickname)
-        firstname = re.sub(r"[^a-z ]", "", firstname_part).split()
-        if not firstname:
+
+        # Extract first token of firstname
+        firstname_tokens = re.sub(r"[^a-z ]", "", firstname_part).split()
+        if not firstname_tokens:
             continue
-        firstname = firstname[0]
+        firstname = firstname_tokens[0]
         lastname_clean = re.sub(r"[^a-z]", "", lastname)
 
-        # Full name bigram: "firstname lastname" and "lastname firstname"
+        # Extract nickname from parenthetical: (Nickname)
+        nickname_match = re.search(r"\(([^)]+)\)", parts[1] if len(parts) > 1 else "")
+        nickname = None
+        if nickname_match:
+            nick_raw = nickname_match.group(1).strip().lower()
+            nick_clean = re.sub(r"[^a-z]", "", nick_raw)
+            if len(nick_clean) >= 2:
+                nickname = nick_clean
+
+        # Full name bigrams: "firstname lastname" and "lastname firstname"
         if len(firstname) >= 2 and len(lastname_clean) >= 2:
-            bg = stemmer.stem(firstname) + " " + stemmer.stem(lastname_clean)
-            legislator_bigrams_stemmed.add(bg)
-            bg_rev = stemmer.stem(lastname_clean) + " " + stemmer.stem(firstname)
-            legislator_bigrams_stemmed.add(bg_rev)
+            fn_stem = stemmer.stem(firstname)
+            ln_stem = stemmer.stem(lastname_clean)
+            legislator_bigrams_stemmed.add(fn_stem + " " + ln_stem)
+            legislator_bigrams_stemmed.add(ln_stem + " " + fn_stem)
+
+            # Nickname bigrams: "nickname lastname" and "lastname nickname"
+            if nickname:
+                nn_stem = stemmer.stem(nickname)
+                legislator_bigrams_stemmed.add(nn_stem + " " + ln_stem)
+                legislator_bigrams_stemmed.add(ln_stem + " " + nn_stem)
+
+        # Distinctive name tokens: stemmed last names that are NOT common
+        # English words.  These are added as stop words so they cannot
+        # appear as unigrams or in any bigram.
+        if len(lastname_clean) >= 2:
+            ln_stem = stemmer.stem(lastname_clean)
+            if len(ln_stem) >= 4 and ln_stem not in safe_name_stems:
+                distinctive_name_tokens.add(ln_stem)
 
     # Combine blocked bigrams
     blocked_bigrams = geo_bigrams_stemmed | legislator_bigrams_stemmed
 
-    print(f"  English stop words (stemmed): {len(english_stops_stemmed)}")
+    print(f"  English + procedural stop words (stemmed): {len(english_stops_stemmed)}")
     print(f"  Geographic unigrams (stemmed): {len(geo_unigrams_stemmed)}")
     print(f"  Geographic bigrams (stemmed): {len(geo_bigrams_stemmed)}")
     print(f"  Legislator name bigrams (stemmed): {len(legislator_bigrams_stemmed)}")
+    print(f"  Distinctive name tokens (stemmed): {len(distinctive_name_tokens)}")
     print(f"  Total blocked bigrams: {len(blocked_bigrams)}")
 
-    return english_stops_stemmed, geo_unigrams_stemmed, blocked_bigrams
+    return english_stops_stemmed, geo_unigrams_stemmed, blocked_bigrams, distinctive_name_tokens
 
 
 # ==================================================================
@@ -236,15 +401,22 @@ _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 from text_analyzer import TextAnalyzer
 
 
-def build_analyzer(english_stops, geo_unigrams, blocked_bigrams):
+def build_analyzer(english_stops, geo_unigrams, blocked_bigrams,
+                   distinctive_name_tokens=None):
     """
     Return a picklable callable analyzer for TfidfVectorizer.
 
     Uses TextAnalyzer (a class with __call__) so that the fitted
     vectorizer can be saved with joblib and loaded by other scripts.
+
+    Distinctive name tokens are added to single_stops so that they are
+    removed as both unigrams and from any bigrams they would form.
     """
+    single_stops = english_stops | geo_unigrams
+    if distinctive_name_tokens:
+        single_stops = single_stops | distinctive_name_tokens
     return TextAnalyzer(
-        single_stops=english_stops | geo_unigrams,
+        single_stops=single_stops,
         blocked_bigrams=blocked_bigrams,
     )
 
@@ -268,7 +440,7 @@ if __name__ == "__main__":
     # 2. Build filter sets
     # ------------------------------------------------------------------
     print("\nBuilding filter sets ...")
-    english_stops, geo_unigrams, blocked_bigrams = build_filter_sets(VOTEVIEW_PATH)
+    english_stops, geo_unigrams, blocked_bigrams, distinctive_names = build_filter_sets(VOTEVIEW_PATH)
 
     # ------------------------------------------------------------------
     # 3. Merge text with labels
@@ -309,7 +481,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------
     print("\nFitting TF-IDF vectorizer (with Porter Stemmer + filtering) ...")
 
-    analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams)
+    analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams, distinctive_names)
 
     # Wrap with tqdm progress tracking (for display only)
     n_docs = len(agg)

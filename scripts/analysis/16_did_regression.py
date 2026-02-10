@@ -29,7 +29,7 @@ PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel"
 TAB_DIR = BASE_DIR / "output" / "tables"
 
 NAFTA_YEAR = 1994
-END_YEAR = 2000  # Exclude China shock period
+END_YEAR = 2004  # Extended sample; China shock controlled in spec 3
 
 # State FIPS -> Census Division mapping
 STATE_TO_DIVISION = {
