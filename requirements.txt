@@ -1,0 +1,12 @@
+geopandas
+joblib
+matplotlib
+nltk
+numpy
+openpyxl
+pandas
+pyarrow
+pyfixest
+scikit-learn
+scipy
+tqdm
