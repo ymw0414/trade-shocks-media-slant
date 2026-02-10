@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 # Our output
-my = pd.read_parquet(r'C:\Users\ymw04\Dropbox\shifting_slant\data\processed\econ\minwoo\12_nafta_vars_county.parquet')
+my = pd.read_parquet(r'C:\Users\ymw04\Dropbox\shifting_slant\data\processed\econ\12_nafta_vars_county.parquet')
 
 # Choi et al. PUBLIC replication ground truth
 gt_path = (r'C:\Users\ymw04\Dropbox\shifting_slant\replication\Replication Project'

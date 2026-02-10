@@ -1,18 +1,18 @@
 """
-13_merge_panel.py
+14_merge_panel.py
 
 Merge the newspaper-year slant panel (step 11) with CZ-level NAFTA
 exposure variables (step 12) to create the final regression-ready dataset.
 
 Inputs:
-  - data/processed/newspapers/minwoo/11_newspaper_year_panel_geo.parquet
-  - data/processed/econ/minwoo/12_nafta_vars_cz.parquet
-  - data/processed/econ/minwoo/12_nafta_vars_county.parquet  (for education/income controls)
-  - data/processed/econ/minwoo/12c_china_shock_cz.parquet    (ADH China shock)
+  - data/processed/newspapers/11_newspaper_year_panel_geo.parquet
+  - data/processed/econ/12_nafta_vars_cz.parquet
+  - data/processed/econ/12_nafta_vars_county.parquet  (for education/income controls)
+  - data/processed/econ/13_china_shock_cz.parquet     (ADH China shock)
   - data/raw/econ/crosswalk/cw_cty_czone/cw_cty_czone.dta
 
 Outputs:
-  - data/processed/panel/minwoo/13_regression_panel.parquet
+  - data/processed/panel/14_regression_panel.parquet
 """
 
 import os
@@ -23,19 +23,19 @@ from pathlib import Path
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
 # Inputs
-NEWSPAPER_PANEL = (BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+NEWSPAPER_PANEL = (BASE_DIR / "data" / "processed" / "newspapers"
                    / "11_newspaper_year_panel_geo.parquet")
-CZ_NAFTA = (BASE_DIR / "data" / "processed" / "econ" / "minwoo"
+CZ_NAFTA = (BASE_DIR / "data" / "processed" / "econ"
             / "12_nafta_vars_cz.parquet")
-COUNTY_NAFTA = (BASE_DIR / "data" / "processed" / "econ" / "minwoo"
+COUNTY_NAFTA = (BASE_DIR / "data" / "processed" / "econ"
                 / "12_nafta_vars_county.parquet")
-CHINA_SHOCK = (BASE_DIR / "data" / "processed" / "econ" / "minwoo"
-               / "12c_china_shock_cz.parquet")
+CHINA_SHOCK = (BASE_DIR / "data" / "processed" / "econ"
+               / "13_china_shock_cz.parquet")
 CZ_XW_PATH = (BASE_DIR / "data" / "raw" / "econ" / "crosswalk"
               / "cw_cty_czone" / "cw_cty_czone.dta")
 
 # Output
-OUT_DIR = BASE_DIR / "data" / "processed" / "panel" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "processed" / "panel"
 
 NAFTA_YEAR = 1994
 
@@ -149,7 +149,7 @@ def main():
     # 6. Sort and save
     panel = panel.sort_values(["paper", "year"]).reset_index(drop=True)
 
-    out_path = OUT_DIR / "13_regression_panel.parquet"
+    out_path = OUT_DIR / "14_regression_panel.parquet"
     panel.to_parquet(out_path)
 
     # Summary

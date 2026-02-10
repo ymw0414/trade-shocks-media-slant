@@ -50,7 +50,7 @@ SPEECHES_PATH = INTER_DIR / "01_speeches_merged.parquet"
 LABELS_PATH = INTER_DIR / "04_speeches_with_partisan_core.parquet"
 VOTEVIEW_PATH = BASE_DIR / "data" / "raw" / "voteview_nominate" / "HSall_members.csv"
 
-OUT_DIR = BASE_DIR / "data" / "processed" / "speeches" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "processed" / "speeches"
 OUT_TFIDF = OUT_DIR / "05_tfidf_matrix.npz"
 OUT_META = OUT_DIR / "05_tfidf_meta.parquet"
 OUT_VECTORIZER = OUT_DIR / "05_tfidf_vectorizer.joblib"
@@ -232,7 +232,7 @@ def build_filter_sets(voteview_path):
 # ==================================================================
 # Import picklable TextAnalyzer class (allows joblib serialization)
 import sys as _sys
-_sys.path.insert(0, str(Path(__file__).parent))
+_sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 from text_analyzer import TextAnalyzer
 
 

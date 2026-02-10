@@ -30,11 +30,11 @@ Grouping:
   financial data for downstream regression analysis.
 
 Inputs:
-  - data/processed/newspapers/minwoo/04_newspaper_labeled_cong_{cong}.parquet
-  - data/processed/newspapers/minwoo/09_article_slant_norm_cong_{cong}.parquet
+  - data/processed/newspapers/04_newspaper_labeled_cong_{cong}.parquet
+  - data/processed/newspapers/09_article_slant_norm_cong_{cong}.parquet
 
 Outputs:
-  - data/processed/newspapers/minwoo/10_newspaper_year_panel.parquet
+  - data/processed/newspapers/10_newspaper_year_panel.parquet
 """
 
 import gc
@@ -48,7 +48,7 @@ from pathlib import Path
 # Paths
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 OUT_DIR = NEWSPAPER_DIR
 
 ECON_PERCENTILE = 90  # top 10%

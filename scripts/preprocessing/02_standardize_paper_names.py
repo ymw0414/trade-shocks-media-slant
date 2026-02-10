@@ -25,8 +25,8 @@ Inputs
 
 Outputs
 -------
-  data/temp/minwoo/02_paper_crosswalk.csv   raw_name -> canonical_name
-  data/temp/minwoo/02_target_papers.csv     final analysis sample
+  data/temp/02_paper_crosswalk.csv   raw_name -> canonical_name
+  data/temp/02_target_papers.csv     final analysis sample
 """
 
 import os
@@ -39,7 +39,7 @@ from pathlib import Path
 # ==================================================================
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 INPUT_DIR = BASE_DIR / "data" / "intermediate" / "newspapers" / "yearly"
-OUT_DIR = BASE_DIR / "data" / "temp" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "temp"
 
 # ==================================================================
 # Constants

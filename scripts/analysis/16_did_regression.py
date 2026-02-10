@@ -1,5 +1,5 @@
 """
-15_did_regression.py
+16_did_regression.py
 
 Difference-in-differences regressions of NAFTA tariff vulnerability
 on newspaper slant, following Choi et al. (2024).
@@ -10,7 +10,7 @@ Specifications (all cluster SE at CZ level):
   (3) + china_shock × year + manushare1990 × year
 
 Inputs:
-  - data/processed/panel/minwoo/13_regression_panel.parquet
+  - data/processed/panel/14_regression_panel.parquet
 
 Outputs:
   - output/tables/did_results.tex
@@ -24,8 +24,8 @@ import pyfixest as pf
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel" / "minwoo"
-              / "13_regression_panel.parquet")
+PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel"
+              / "14_regression_panel.parquet")
 TAB_DIR = BASE_DIR / "output" / "tables"
 
 NAFTA_YEAR = 1994

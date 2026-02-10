@@ -21,11 +21,11 @@ Rolling-window mapping:
   Model trained on (t-1, t) scores newspaper articles in congress t.
 
 Inputs:
-  - data/processed/speeches/minwoo/models/06_lasso_window_{prev}_{curr}.joblib
-  - data/processed/newspapers/minwoo/07_newspaper_tfidf_cong_{cong}.npz
+  - data/processed/speeches/models/06_lasso_window_{prev}_{curr}.joblib
+  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
 
 Outputs (per congress):
-  - data/processed/newspapers/minwoo/08_article_slant_cong_{cong}.parquet
+  - data/processed/newspapers/08_article_slant_cong_{cong}.parquet
 """
 
 import gc
@@ -42,8 +42,8 @@ from pathlib import Path
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-MODEL_DIR = BASE_DIR / "data" / "processed" / "speeches" / "minwoo" / "models"
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+MODEL_DIR = BASE_DIR / "data" / "processed" / "speeches" / "models"
+NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 OUT_DIR = NEWSPAPER_DIR
 

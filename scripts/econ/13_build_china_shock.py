@@ -1,12 +1,12 @@
 """
-12c_build_china_shock.py
+13_build_china_shock.py
 
 Prepare the ADH (2013) China shock measure at the commuting-zone level,
 following Choi et al. (2024) who use `d_tradeotch_pw_lag` as a control.
 
 Source: David Dorn's website (ddorn.net)
   Autor, Dorn & Hanson (2013) "The China Syndrome" file archive.
-  workfile_china.dta contains CZ-level trade exposure, 722 CZs × 2 periods.
+  workfile_china.dta contains CZ-level trade exposure, 722 CZs x 2 periods.
 
 Variable: d_tradeotch_pw_lag
   = decadal change in Chinese imports per worker (IV using imports to
@@ -15,14 +15,14 @@ Variable: d_tradeotch_pw_lag
   Period 2000: captures 2000-2007 change.
 
 We extract the 1990 period (relevant for NAFTA-era analysis) as a
-cross-sectional CZ-level measure for merging in step 13.
+cross-sectional CZ-level measure for merging in step 14.
 
 Inputs:
   - data/raw/econ/adh/adh_extracted/Autor-Dorn-Hanson-ChinaSyndrome-
     FileArchive/dta/workfile_china.dta
 
 Outputs:
-  - data/processed/econ/minwoo/12c_china_shock_cz.parquet
+  - data/processed/econ/13_china_shock_cz.parquet
 """
 
 import os
@@ -33,7 +33,7 @@ BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 ADH_PATH = (BASE_DIR / "data" / "raw" / "econ" / "adh" / "adh_extracted"
             / "Autor-Dorn-Hanson-ChinaSyndrome-FileArchive"
             / "dta" / "workfile_china.dta")
-OUT_DIR = BASE_DIR / "data" / "processed" / "econ" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "processed" / "econ"
 
 
 def main():
@@ -62,7 +62,7 @@ def main():
     print(f"    p50  = {df90['china_shock'].quantile(0.50):.4f}")
     print(f"    p75  = {df90['china_shock'].quantile(0.75):.4f}")
 
-    out_path = OUT_DIR / "12c_china_shock_cz.parquet"
+    out_path = OUT_DIR / "13_china_shock_cz.parquet"
     df90.to_parquet(out_path, index=False)
     print(f"\n  Saved -> {out_path}")
     print("Done.")

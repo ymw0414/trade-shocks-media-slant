@@ -1,5 +1,5 @@
 """
-14_event_study.py
+15_event_study.py
 
 Event study of NAFTA tariff vulnerability on newspaper slant,
 following the Choi et al. (2024) specification adapted for newspaper-level data.
@@ -9,7 +9,7 @@ Two specifications (both with paper FE + year FE + division×year FE, cluster CZ
   Spec 2 (controls): + china_shock × year + manushare × year
 
 Inputs:
-  - data/processed/panel/minwoo/13_regression_panel.parquet
+  - data/processed/panel/14_regression_panel.parquet
 
 Outputs:
   - output/figures/event_study_{depvar}.png   (one per outcome)
@@ -26,8 +26,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel" / "minwoo"
-              / "13_regression_panel.parquet")
+PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel"
+              / "14_regression_panel.parquet")
 FIG_DIR = BASE_DIR / "output" / "figures"
 TAB_DIR = BASE_DIR / "output" / "tables"
 

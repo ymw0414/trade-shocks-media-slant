@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Paths
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PROC_DIR = BASE_DIR / "data" / "processed" / "speeches" / "minwoo"
+PROC_DIR = BASE_DIR / "data" / "processed" / "speeches"
 
 TFIDF_PATH = PROC_DIR / "05_tfidf_matrix.npz"
 META_PATH = PROC_DIR / "05_tfidf_meta.parquet"

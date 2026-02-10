@@ -16,12 +16,12 @@ Approach (is_news):
   - Title-based pattern matching against known non-news categories.
 
 Inputs:
-  - data/processed/speeches/minwoo/05_tfidf_vectorizer.joblib
-  - data/processed/newspapers/minwoo/07_newspaper_tfidf_cong_{cong}.npz
-  - data/processed/newspapers/minwoo/07_newspaper_meta_cong_{cong}.parquet
+  - data/processed/speeches/05_tfidf_vectorizer.joblib
+  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - data/processed/newspapers/07_newspaper_meta_cong_{cong}.parquet
 
 Outputs (per congress):
-  - data/processed/newspapers/minwoo/04_newspaper_labeled_cong_{cong}.parquet
+  - data/processed/newspapers/04_newspaper_labeled_cong_{cong}.parquet
 """
 
 import gc
@@ -36,7 +36,7 @@ from pathlib import Path
 from nltk.stem.porter import PorterStemmer
 
 # Ensure text_analyzer is importable (needed for unpickling the vectorizer)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 import text_analyzer  # noqa: F401
 
 # ------------------------------------------------------------------
@@ -44,8 +44,8 @@ import text_analyzer  # noqa: F401
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "minwoo" / "05_tfidf_vectorizer.joblib"
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
+NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 OUT_DIR = NEWSPAPER_DIR  # save alongside step-07 outputs
 

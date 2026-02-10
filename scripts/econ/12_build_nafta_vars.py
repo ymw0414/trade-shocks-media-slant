@@ -2,9 +2,6 @@
 12_build_nafta_vars.py
 
 Build NAFTA exposure variables at the county and commuting-zone level.
-Translates scripts/stata/01_build_nafta_vars.do + 02_collapse_to_cz.do
-into Python.
-
 Pipeline:
   Section 1: Ad valorem equivalent (AVE) tariff from Romalis + USITC data
   Section 2: Import-weighted tariff and revealed comparative advantage (RCA)
@@ -30,8 +27,8 @@ Inputs:
   - data/raw/econ/crosswalk/cw_cty_czone/cw_cty_czone.dta
 
 Outputs:
-  - data/processed/econ/minwoo/12_nafta_vars_county.parquet
-  - data/processed/econ/minwoo/12_nafta_vars_cz.parquet
+  - data/processed/econ/12_nafta_vars_county.parquet
+  - data/processed/econ/12_nafta_vars_cz.parquet
 """
 
 import os
@@ -50,7 +47,7 @@ BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
 RAW = BASE_DIR / "data" / "raw" / "econ"
 PROCESSED = BASE_DIR / "data" / "processed" / "econ"
-OUT_DIR = PROCESSED / "minwoo"
+OUT_DIR = PROCESSED
 
 TARIFF_ROMALIS_DIR = RAW / "tariff" / "tariff_89-01_romalis"
 TARIFF_USITC_DIR = RAW / "tariff" / "tariff_02-17_usitc"

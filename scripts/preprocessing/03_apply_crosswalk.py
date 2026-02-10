@@ -6,11 +6,11 @@ paper names to canonical forms and filter to the target analysis sample.
 
 Inputs:
   - data/intermediate/newspapers/yearly/newspapers_{year}.parquet
-  - data/temp/minwoo/02_paper_crosswalk.csv
-  - data/temp/minwoo/02_target_papers.csv
+  - data/temp/02_paper_crosswalk.csv
+  - data/temp/02_target_papers.csv
 
 Outputs:
-  - data/intermediate/newspapers/minwoo/newspapers_{year}.parquet
+  - data/intermediate/newspapers/newspapers_{year}.parquet
     (only target papers, canonical names)
 """
 
@@ -24,10 +24,10 @@ from pathlib import Path
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
 INPUT_DIR = BASE_DIR / "data" / "intermediate" / "newspapers" / "yearly"
-CROSSWALK_PATH = BASE_DIR / "data" / "temp" / "minwoo" / "02_paper_crosswalk.csv"
-TARGET_PAPERS_PATH = BASE_DIR / "data" / "temp" / "minwoo" / "02_target_papers.csv"
+CROSSWALK_PATH = BASE_DIR / "data" / "temp" / "02_paper_crosswalk.csv"
+TARGET_PAPERS_PATH = BASE_DIR / "data" / "temp" / "02_target_papers.csv"
 
-OUT_DIR = BASE_DIR / "data" / "intermediate" / "newspapers" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "intermediate" / "newspapers"
 
 
 # ==================================================================

@@ -14,12 +14,12 @@ Year-to-Congress mapping:
   Congress 108 -> 2003-2004
 
 Inputs:
-  - data/intermediate/newspapers/minwoo/newspapers_{year}.parquet
-  - data/processed/speeches/minwoo/05_tfidf_vectorizer.joblib
+  - data/intermediate/newspapers/newspapers_{year}.parquet
+  - data/processed/speeches/05_tfidf_vectorizer.joblib
 
 Outputs (per congress):
-  - data/processed/newspapers/minwoo/07_newspaper_tfidf_cong_{cong}.npz
-  - data/processed/newspapers/minwoo/07_newspaper_meta_cong_{cong}.parquet
+  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - data/processed/newspapers/07_newspaper_meta_cong_{cong}.parquet
 """
 
 import gc
@@ -35,7 +35,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 
 # Ensure text_analyzer is importable (needed for unpickling the vectorizer)
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 import text_analyzer  # noqa: F401 — registers module for joblib.load
 
 # ------------------------------------------------------------------
@@ -43,10 +43,10 @@ import text_analyzer  # noqa: F401 — registers module for joblib.load
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-NEWSPAPER_DIR = BASE_DIR / "data" / "intermediate" / "newspapers" / "minwoo"
-VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "minwoo" / "05_tfidf_vectorizer.joblib"
+NEWSPAPER_DIR = BASE_DIR / "data" / "intermediate" / "newspapers"
+VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
 
-OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 # ------------------------------------------------------------------
 # Year-to-Congress mapping

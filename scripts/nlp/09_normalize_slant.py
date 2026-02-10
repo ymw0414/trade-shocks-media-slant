@@ -23,14 +23,14 @@ Rolling-window mapping:
   mu_R, mu_D computed from ALL legislators in congresses (t-1, t).
 
 Inputs:
-  - data/processed/speeches/minwoo/models/06_lasso_window_{prev}_{curr}.joblib
-  - data/processed/speeches/minwoo/05_tfidf_matrix.npz
-  - data/processed/speeches/minwoo/05_tfidf_meta.parquet
-  - data/processed/newspapers/minwoo/08_article_slant_cong_{cong}.parquet
+  - data/processed/speeches/models/06_lasso_window_{prev}_{curr}.joblib
+  - data/processed/speeches/05_tfidf_matrix.npz
+  - data/processed/speeches/05_tfidf_meta.parquet
+  - data/processed/newspapers/08_article_slant_cong_{cong}.parquet
 
 Outputs:
-  - data/processed/newspapers/minwoo/09_article_slant_norm_cong_{cong}.parquet
-  - data/processed/newspapers/minwoo/09_normalization_params.csv
+  - data/processed/newspapers/09_article_slant_norm_cong_{cong}.parquet
+  - data/processed/newspapers/09_normalization_params.csv
 """
 
 import gc
@@ -47,9 +47,9 @@ from pathlib import Path
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-SPEECH_DIR = BASE_DIR / "data" / "processed" / "speeches" / "minwoo"
+SPEECH_DIR = BASE_DIR / "data" / "processed" / "speeches"
 MODEL_DIR = SPEECH_DIR / "models"
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 SPEECH_TFIDF_PATH = SPEECH_DIR / "05_tfidf_matrix.npz"
 SPEECH_META_PATH = SPEECH_DIR / "05_tfidf_meta.parquet"

@@ -1,5 +1,5 @@
 """
-12b_map_nafta_exposure.py
+map_nafta_exposure.py
 
 Choropleth maps of NAFTA vulnerability at the county and
 commuting-zone level for the contiguous US.
@@ -42,9 +42,9 @@ VULN_DATA = (BASE_DIR / "replication" / "Replication Project" / "Replication Pro
              / "nafta_politics_replication_submission_PUBLIC"
              / "data" / "working_data" / "vulnerability.dta")
 # Fallback: our processed data
-COUNTY_DATA = (BASE_DIR / "data" / "processed" / "econ" / "minwoo"
+COUNTY_DATA = (BASE_DIR / "data" / "processed" / "econ"
                / "12_nafta_vars_county.parquet")
-CZ_DATA = (BASE_DIR / "data" / "processed" / "econ" / "minwoo"
+CZ_DATA = (BASE_DIR / "data" / "processed" / "econ"
            / "12_nafta_vars_cz.parquet")
 OUT_DIR = BASE_DIR / "output" / "figures"
 

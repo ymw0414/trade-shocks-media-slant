@@ -10,10 +10,10 @@ Sources:
   - data/raw/econ/crosswalk/cw_cty_czone/cw_cty_czone.dta (FIPS -> CZ)
 
 Inputs:
-  - data/processed/newspapers/minwoo/10_newspaper_year_panel.parquet
+  - data/processed/newspapers/10_newspaper_year_panel.parquet
 
 Outputs:
-  - data/processed/newspapers/minwoo/11_newspaper_year_panel_geo.parquet
+  - data/processed/newspapers/11_newspaper_year_panel_geo.parquet
 """
 
 import os
@@ -25,11 +25,11 @@ from pathlib import Path
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-PANEL_PATH = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo" / "10_newspaper_year_panel.parquet"
+PANEL_PATH = BASE_DIR / "data" / "processed" / "newspapers" / "10_newspaper_year_panel.parquet"
 GEO_PATH = BASE_DIR / "data" / "geo" / "newspaper_county_map.csv"
 CZ_PATH = BASE_DIR / "data" / "raw" / "econ" / "crosswalk" / "cw_cty_czone" / "cw_cty_czone.dta"
 
-OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers" / "minwoo"
+OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 # ------------------------------------------------------------------
 # Name aliases: panel name -> geo map name
@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     # 4. Add manual entries to geo map
     manual_df = pd.DataFrame(MANUAL_ENTRIES)
-    manual_df["source_category"] = "4_manual_minwoo"
+    manual_df["source_category"] = "4_manual"
     manual_df["match_type"] = "Manual"
     geo = pd.concat([geo, manual_df], ignore_index=True)
     print(f"  After manual additions: {geo['paper'].nunique()} papers")
