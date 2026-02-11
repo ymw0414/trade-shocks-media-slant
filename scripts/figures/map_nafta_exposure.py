@@ -134,7 +134,6 @@ def plot_map(gdf, state_gdf, col, title, out_path, bin_edges, bin_labels):
     )
     leg.get_frame().set_linewidth(0.5)
 
-    ax.set_title(title, fontsize=14, fontweight="bold", pad=12)
     ax.set_axis_off()
     fig.tight_layout()
     fig.savefig(out_path, dpi=250, bbox_inches="tight", facecolor="white")

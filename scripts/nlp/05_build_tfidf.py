@@ -1,66 +1,72 @@
 """
 05_build_tfidf.py
 
-Build a uniform TF-IDF matrix from congressional speeches (Congresses 99-108)
-with comprehensive text preprocessing to isolate genuine partisan language.
+Build feature matrix from congressional speeches following Widmer et al. methodology.
 
-Preprocessing pipeline:
-  1. Remove parliamentary procedure phrases from raw text (expanded list)
+Two modes controlled by pipeline_config:
+  - Widmer mode (default): CountVectorizer + relative freq, bigrams only,
+    individual speeches, all R/D, per-party frequency filter
+  - Legacy mode: TfidfVectorizer, unigrams+bigrams, legislator-congress aggregation
+
+Preprocessing pipeline (both modes):
+  1. Remove parliamentary procedure phrases from raw text
   2. Tokenize (lowercase, alphabetic tokens >= 2 chars)
-  3. Remove English stop words (sklearn default list)
-  4. Remove procedural/legal stop words (thereto, thereof, hereby, etc.)
-  5. Remove geographic terms (state names, major cities, state abbreviations)
-  6. Remove distinctive legislator name tokens (stemmed surnames that are
-     NOT common English words, e.g. "dannemeyer" but NOT "young")
-  7. Apply Porter Stemmer to all remaining tokens
-  8. Form unigrams and bigrams
-  9. Filter out legislator full-name bigrams, including nicknames (stemmed)
+  3. Remove English stop words + procedural/legal stop words
+  4. Remove geographic terms (state names, major cities, abbreviations)
+  5. Remove distinctive legislator name tokens
+  6. Apply Porter Stemmer
+  7. Form bigrams (or unigrams+bigrams in legacy mode)
+  8. Filter out legislator full-name bigrams
 
-Steps:
-  1. Load speech text (01) and partisan-core labels (04).
-  2. Build stop-word lists (geographic, parliamentary, legislator names).
-  3. Aggregate all speeches by legislator-congress (icpsr + congress).
-  4. Fit a single TF-IDF vectorizer with custom analyzer on the full corpus.
-  5. Save the sparse TF-IDF matrix, labels, and the fitted vectorizer.
+Widmer frequency filter (B.2):
+  V = {b in (V^0.1_Rep ∪ V^0.1_Dem) ∩ (V^0.01_Rep ∩ V^0.01_Dem)}
+  - Must appear in >=0.1% of either party's speeches (OR)
+  - Must appear in >=0.01% of both parties' speeches (AND)
+  Result: ~14,224 bigrams (Widmer gets 14,224)
 
-TF-IDF settings:
-  ngram_range  = (1, 2)  -- handled in custom analyzer
-  min_df       = 0.001
-  sublinear_tf = True
-  stemming     = Porter Stemmer (NLTK)
+Outputs:
+  - 05_feature_matrix.npz  (sparse: relative freq or TF-IDF)
+  - 05_speech_meta.parquet  (per-speech or per-legislator metadata)
+  - 05_vectorizer.joblib    (fitted vectorizer for step 07)
+  - 05_vocab_filter_idx.npy (column indices of filtered vocabulary)
 """
 
 import os
 import re
 import time
 import joblib
+import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 from pathlib import Path
 from tqdm import tqdm
 from nltk.stem.porter import PorterStemmer
-from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer, ENGLISH_STOP_WORDS
+from sklearn.preprocessing import normalize
 
 # ------------------------------------------------------------------
-# Paths
+# Paths (from pipeline_config — change RUN_NAME there for new runs)
 # ------------------------------------------------------------------
-BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-INTER_DIR = BASE_DIR / "data" / "intermediate" / "speeches"
+import pipeline_config as cfg
 
-SPEECHES_PATH = INTER_DIR / "01_speeches_merged.parquet"
-LABELS_PATH = INTER_DIR / "04_speeches_with_partisan_core.parquet"
-VOTEVIEW_PATH = BASE_DIR / "data" / "raw" / "voteview_nominate" / "HSall_members.csv"
+SPEECHES_PATH  = cfg.SPEECHES_PATH
+LABELS_PATH    = cfg.LABELS_PATH
+VOTEVIEW_PATH  = cfg.VOTEVIEW_PATH
 
-OUT_DIR = BASE_DIR / "data" / "processed" / "speeches"
-OUT_TFIDF = OUT_DIR / "05_tfidf_matrix.npz"
-OUT_META = OUT_DIR / "05_tfidf_meta.parquet"
-OUT_VECTORIZER = OUT_DIR / "05_tfidf_vectorizer.joblib"
+OUT_DIR        = cfg.SPEECH_DIR
+OUT_MATRIX     = OUT_DIR / "05_feature_matrix.npz"
+OUT_META       = OUT_DIR / "05_speech_meta.parquet"
+OUT_VECTORIZER = OUT_DIR / "05_vectorizer.joblib"
+OUT_VOCAB_IDX  = OUT_DIR / "05_vocab_filter_idx.npy"
+
+# For backward compatibility (steps that reference old names)
+OUT_TFIDF      = OUT_DIR / "05_tfidf_matrix.npz"
+OUT_TFIDF_META = OUT_DIR / "05_tfidf_meta.parquet"
 
 # ------------------------------------------------------------------
-# Parliamentary procedure phrases to remove (must match text_analyzer.py)
+# Parliamentary procedure phrases to remove
 # ------------------------------------------------------------------
 PARLIAMENTARY_PHRASES = [
-    # --- Yielding time ---
     "i yield back the balance of my time",
     "i yield back",
     "i yield to the gentleman",
@@ -72,133 +78,66 @@ PARLIAMENTARY_PHRASES = [
     "i yield to",
     "the gentleman yields",
     "the gentlewoman yields",
-    # --- Forms of address ---
-    "mr speaker",
-    "mr chairman",
-    "mr president",
-    "madam speaker",
-    "madam chairman",
-    "madam president",
-    "the gentleman from",
-    "the gentlewoman from",
-    "the distinguished gentleman",
-    "the distinguished gentlewoman",
-    "my distinguished colleague",
-    "my good friend",
+    "mr speaker", "mr chairman", "mr president",
+    "madam speaker", "madam chairman", "madam president",
+    "the gentleman from", "the gentlewoman from",
+    "the distinguished gentleman", "the distinguished gentlewoman",
+    "my distinguished colleague", "my good friend",
     "the chair recognizes",
-    "the speaker pro tempore",
-    "the speaker announced",
-    "the speaker appoints",
-    "the speaker laid before the house",
-    # --- Pursuant / rules ---
-    "pursuant to house rule",
-    "pursuant to clause",
-    "pursuant to the rule",
-    "pursuant to the order",
+    "the speaker pro tempore", "the speaker announced",
+    "the speaker appoints", "the speaker laid before the house",
+    "pursuant to house rule", "pursuant to clause",
+    "pursuant to the rule", "pursuant to the order",
     "pursuant to the provisions",
-    # --- Unanimous consent ---
     "i ask unanimous consent",
-    "without objection so ordered",
-    "without objection",
-    # --- Questions and voting ---
-    "the question is on",
-    "the yeas and nays are ordered",
-    "the previous question is ordered",
-    "the previous question",
-    "the question was taken",
-    "the question recurs",
-    "i demand a recorded vote",
-    "a recorded vote is demanded",
+    "without objection so ordered", "without objection",
+    "the question is on", "the yeas and nays are ordered",
+    "the previous question is ordered", "the previous question",
+    "the question was taken", "the question recurs",
+    "i demand a recorded vote", "a recorded vote is demanded",
     "demand a recorded vote",
-    "i demand a second",
-    "demand a second",
-    "the yeas and nays",
-    "a recorded vote",
-    "a rollcall vote",
-    "by a recorded vote",
-    "on this vote",
-    # --- Rising ---
-    "i rise today",
-    "i rise in support",
-    "i rise in opposition",
-    "i rise to",
-    # --- Reserving time ---
+    "i demand a second", "demand a second",
+    "the yeas and nays", "a recorded vote", "a rollcall vote",
+    "by a recorded vote", "on this vote",
+    "i rise today", "i rise in support", "i rise in opposition", "i rise to",
     "i reserve the balance of my time",
-    # --- Record ---
     "under a previous order of the house",
-    "i include for the record",
-    "i insert for the record",
+    "i include for the record", "i insert for the record",
     "permission to revise and extend",
     "revise and extend my remarks",
     "i move to strike the last word",
-    # --- Time expiration ---
     "the time of the gentleman has expired",
     "the time of the gentlewoman has expired",
-    # --- Motions ---
-    "motion to table",
-    "motion to reconsider",
-    "motion to recommit",
-    "motion to suspend the rules",
-    "motion to instruct conferees",
-    "i move to suspend the rules",
-    "i offer a motion",
-    "suspend the rules and pass",
-    "suspend the rules and agree",
+    "motion to table", "motion to reconsider", "motion to recommit",
+    "motion to suspend the rules", "motion to instruct conferees",
+    "i move to suspend the rules", "i offer a motion",
+    "suspend the rules and pass", "suspend the rules and agree",
     "suspend the rules and concur",
-    # --- Amendments ---
-    "amendment thereto",
-    "amendments thereto",
-    "amendment offered by",
+    "amendment thereto", "amendments thereto", "amendment offered by",
     "amendment in the nature of a substitute",
-    "for the purpose of amendment",
-    "purpose of the amendment",
+    "for the purpose of amendment", "purpose of the amendment",
     "amendment to the amendment",
-    # --- Extensions and leaves ---
-    "extension of remarks",
-    "leave to extend",
-    "leave to revise and extend",
-    "general leave",
-    "leave of absence",
-    # --- Committee procedures ---
-    "permit the committee to sit",
-    "permitted to sit",
-    "the committee on rules",
-    "reported the bill",
+    "extension of remarks", "leave to extend",
+    "leave to revise and extend", "general leave", "leave of absence",
+    "permit the committee to sit", "permitted to sit",
+    "the committee on rules", "reported the bill",
     "ordered to be reported",
-    # --- Objections / reservations ---
-    "is there objection",
-    "objection is heard",
-    "hearing none",
-    "reserving the right to object",
-    "i reserve the right to object",
+    "is there objection", "objection is heard", "hearing none",
+    "reserving the right to object", "i reserve the right to object",
     "i withdraw my reservation",
-    # --- Ordering / printing ---
-    "so ordered",
-    "ordered to be printed",
-    "ordered to lie on the table",
+    "so ordered", "ordered to be printed", "ordered to lie on the table",
     "engrossment and third reading",
-    "a quorum is present",
-    "a quorum is not present",
-    # --- Clerk ---
-    "the clerk will read",
-    "the clerk will report",
+    "a quorum is present", "a quorum is not present",
+    "the clerk will read", "the clerk will report",
     "the clerk will call the roll",
-    "the clerk read",
-    "the clerk reported",
-    "the roll was called",
-    # --- One-minute / special order ---
-    "one minute speech",
-    "one minute speeches",
-    "morning hour",
-    "special order",
-    "special orders",
-    # --- Further proceedings ---
-    "further proceedings",
-    "further reading",
+    "the clerk read", "the clerk reported", "the roll was called",
+    "one minute speech", "one minute speeches",
+    "morning hour", "special order", "special orders",
+    "further proceedings", "further reading",
 ]
 
 # ------------------------------------------------------------------
-# Procedural stop words (legal/parliamentary terms, no partisan content)
+# Procedural stop words
 # ------------------------------------------------------------------
 PROCEDURAL_STOP_WORDS = [
     "thereto", "thereof", "hereby", "herein", "herewith",
@@ -208,8 +147,7 @@ PROCEDURAL_STOP_WORDS = [
 ]
 
 # ------------------------------------------------------------------
-# Common English words that are also legislator surnames -- keep as
-# valid tokens (do NOT block as distinctive name tokens)
+# Common English words that are also legislator surnames — keep as valid tokens
 # ------------------------------------------------------------------
 COMMON_ENGLISH_WORDS_ALSO_NAMES = {
     "archer", "baker", "barr", "bass", "bell", "berry", "bishop",
@@ -237,7 +175,7 @@ COMMON_ENGLISH_WORDS_ALSO_NAMES = {
 }
 
 # ------------------------------------------------------------------
-# US state names (including multi-word)
+# US state names, abbreviations, major cities
 # ------------------------------------------------------------------
 STATE_NAMES = [
     "alabama", "alaska", "arizona", "arkansas", "california",
@@ -262,7 +200,6 @@ STATE_ABBREVS = [
     "dc",
 ]
 
-# Major US cities likely to appear in congressional speech
 MAJOR_CITIES = [
     "new york", "los angeles", "chicago", "houston", "phoenix",
     "philadelphia", "san antonio", "san diego", "dallas", "san jose",
@@ -275,7 +212,6 @@ MAJOR_CITIES = [
     "cleveland", "tampa", "pittsburgh", "cincinnati", "st louis",
     "orlando", "honolulu", "anchorage", "richmond", "buffalo",
     "birmingham", "brooklyn", "manhattan",
-    # State capitals not in list above
     "montgomery", "juneau", "little rock", "hartford", "dover",
     "tallahassee", "boise", "springfield", "des moines", "topeka",
     "frankfort", "baton rouge", "augusta", "annapolis", "lansing",
@@ -294,23 +230,18 @@ def build_filter_sets(voteview_path):
     """Build all stop-word sets for the custom analyzer."""
     stemmer = PorterStemmer()
 
-    # --- English stop words (stemmed) ---
     english_stops_stemmed = {stemmer.stem(w) for w in ENGLISH_STOP_WORDS}
-
-    # --- Procedural stop words (stemmed) ---
     procedural_stops_stemmed = {stemmer.stem(w) for w in PROCEDURAL_STOP_WORDS}
     english_stops_stemmed |= procedural_stops_stemmed
 
-    # --- Geographic unigrams (stemmed single-word names + abbreviations) ---
     geo_unigrams_stemmed = set()
     for name in STATE_NAMES + MAJOR_CITIES:
         tokens = name.split()
         if len(tokens) == 1:
             geo_unigrams_stemmed.add(stemmer.stem(tokens[0]))
     for abbr in STATE_ABBREVS:
-        geo_unigrams_stemmed.add(abbr)  # abbreviations are short, don't stem
+        geo_unigrams_stemmed.add(abbr)
 
-    # --- Geographic bigrams (stemmed multi-word names) ---
     geo_bigrams_stemmed = set()
     for name in STATE_NAMES + MAJOR_CITIES:
         tokens = name.split()
@@ -318,38 +249,32 @@ def build_filter_sets(voteview_path):
             bg = stemmer.stem(tokens[0]) + " " + stemmer.stem(tokens[1])
             geo_bigrams_stemmed.add(bg)
 
-    # --- Legislator names from Voteview (Congresses 99-108, House) ---
     voteview = pd.read_csv(voteview_path)
+    cong_lo, cong_hi = cfg.CONFIG["congress_range"]
     house = voteview[
-        (voteview["congress"] >= 99)
-        & (voteview["congress"] <= 108)
+        (voteview["congress"] >= cong_lo)
+        & (voteview["congress"] <= cong_hi)
         & (voteview["chamber"] == "House")
     ]
 
-    # Build safe-name stems: common English words that also happen to be
-    # legislator surnames.  These should NOT be blocked as stop words.
     safe_name_stems = {stemmer.stem(w) for w in COMMON_ENGLISH_WORDS_ALSO_NAMES}
-    safe_name_stems |= english_stops_stemmed  # stop words already filtered
+    safe_name_stems |= english_stops_stemmed
 
     legislator_bigrams_stemmed = set()
     distinctive_name_tokens = set()
 
     for bioname in house["bioname"].dropna().unique():
-        # bioname format: "LASTNAME, Firstname Middle (Nickname), Suffix"
         parts = bioname.split(",")
         if len(parts) < 2:
             continue
         lastname = parts[0].strip().lower()
         firstname_part = parts[1].strip().lower()
-
-        # Extract first token of firstname
         firstname_tokens = re.sub(r"[^a-z ]", "", firstname_part).split()
         if not firstname_tokens:
             continue
         firstname = firstname_tokens[0]
         lastname_clean = re.sub(r"[^a-z]", "", lastname)
 
-        # Extract nickname from parenthetical: (Nickname)
         nickname_match = re.search(r"\(([^)]+)\)", parts[1] if len(parts) > 1 else "")
         nickname = None
         if nickname_match:
@@ -358,28 +283,21 @@ def build_filter_sets(voteview_path):
             if len(nick_clean) >= 2:
                 nickname = nick_clean
 
-        # Full name bigrams: "firstname lastname" and "lastname firstname"
         if len(firstname) >= 2 and len(lastname_clean) >= 2:
             fn_stem = stemmer.stem(firstname)
             ln_stem = stemmer.stem(lastname_clean)
             legislator_bigrams_stemmed.add(fn_stem + " " + ln_stem)
             legislator_bigrams_stemmed.add(ln_stem + " " + fn_stem)
-
-            # Nickname bigrams: "nickname lastname" and "lastname nickname"
             if nickname:
                 nn_stem = stemmer.stem(nickname)
                 legislator_bigrams_stemmed.add(nn_stem + " " + ln_stem)
                 legislator_bigrams_stemmed.add(ln_stem + " " + nn_stem)
 
-        # Distinctive name tokens: stemmed last names that are NOT common
-        # English words.  These are added as stop words so they cannot
-        # appear as unigrams or in any bigram.
         if len(lastname_clean) >= 2:
             ln_stem = stemmer.stem(lastname_clean)
             if len(ln_stem) >= 4 and ln_stem not in safe_name_stems:
                 distinctive_name_tokens.add(ln_stem)
 
-    # Combine blocked bigrams
     blocked_bigrams = geo_bigrams_stemmed | legislator_bigrams_stemmed
 
     print(f"  English + procedural stop words (stemmed): {len(english_stops_stemmed)}")
@@ -395,30 +313,69 @@ def build_filter_sets(voteview_path):
 # ==================================================================
 # Helper: build the custom analyzer
 # ==================================================================
-# Import picklable TextAnalyzer class (allows joblib serialization)
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 from text_analyzer import TextAnalyzer
 
 
 def build_analyzer(english_stops, geo_unigrams, blocked_bigrams,
-                   distinctive_name_tokens=None):
-    """
-    Return a picklable callable analyzer for TfidfVectorizer.
-
-    Uses TextAnalyzer (a class with __call__) so that the fitted
-    vectorizer can be saved with joblib and loaded by other scripts.
-
-    Distinctive name tokens are added to single_stops so that they are
-    removed as both unigrams and from any bigrams they would form.
-    """
+                   distinctive_name_tokens=None, bigrams_only=False):
+    """Return a picklable callable analyzer for CountVectorizer/TfidfVectorizer."""
     single_stops = english_stops | geo_unigrams
     if distinctive_name_tokens:
         single_stops = single_stops | distinctive_name_tokens
     return TextAnalyzer(
         single_stops=single_stops,
         blocked_bigrams=blocked_bigrams,
+        bigrams_only=bigrams_only,
     )
+
+
+# ==================================================================
+# Widmer frequency filter
+# ==================================================================
+def apply_widmer_freq_filter(count_matrix, party_labels, feature_names):
+    """
+    Apply Widmer et al. (2020) frequency filter (Appendix B.2).
+
+    V = {b in (V^0.1_Rep ∪ V^0.1_Dem) ∩ (V^0.01_Rep ∩ V^0.01_Dem)}
+
+    Returns: array of column indices that pass the filter.
+    """
+    # Binarize: presence/absence per document
+    binary = (count_matrix > 0).astype(np.float32)
+
+    rep_mask = (party_labels == "R") | (party_labels == 200)
+    dem_mask = (party_labels == "D") | (party_labels == 100)
+    n_rep = rep_mask.sum()
+    n_dem = dem_mask.sum()
+
+    # Document frequency per party
+    df_rep = np.asarray(binary[rep_mask].sum(axis=0)).ravel()
+    df_dem = np.asarray(binary[dem_mask].sum(axis=0)).ravel()
+
+    # Relative document frequency
+    rdf_rep = df_rep / n_rep
+    rdf_dem = df_dem / n_dem
+
+    # Condition 1: >=0.1% in either party (OR)
+    cond_01 = (rdf_rep >= 0.001) | (rdf_dem >= 0.001)
+
+    # Condition 2: >=0.01% in both parties (AND)
+    cond_001 = (rdf_rep >= 0.0001) & (rdf_dem >= 0.0001)
+
+    # Combined
+    keep_mask = cond_01 & cond_001
+    keep_idx = np.where(keep_mask)[0]
+
+    print(f"\n  Widmer frequency filter:")
+    print(f"    Republican speeches: {n_rep:,}")
+    print(f"    Democrat speeches:   {n_dem:,}")
+    print(f"    Features >=0.1% either party: {cond_01.sum():,}")
+    print(f"    Features >=0.01% both parties: {cond_001.sum():,}")
+    print(f"    Intersection (final vocabulary): {len(keep_idx):,}")
+
+    return keep_idx
 
 
 # ==================================================================
@@ -427,13 +384,25 @@ def build_analyzer(english_stops, geo_unigrams, blocked_bigrams,
 if __name__ == "__main__":
     pipeline_start = time.time()
 
+    cfg.save_config()
+
+    USE_WIDMER = cfg.CONFIG.get("use_relative_freq", True)
+    BIGRAMS_ONLY = cfg.CONFIG.get("bigrams_only", True)
+    AGGREGATE = cfg.CONFIG.get("aggregate_to_legislator", False)
+    FREQ_FILTER = cfg.CONFIG.get("freq_filter_mode", "widmer")
+
+    print(f"Mode: {'Widmer' if USE_WIDMER else 'Legacy TF-IDF'}")
+    print(f"  N-grams: {'bigrams only' if BIGRAMS_ONLY else 'unigrams + bigrams'}")
+    print(f"  Aggregation: {'legislator-congress' if AGGREGATE else 'individual speeches'}")
+    print(f"  Frequency filter: {FREQ_FILTER}")
+
     # ------------------------------------------------------------------
     # 1. Load data
     # ------------------------------------------------------------------
-    print("Loading speech text (speech_id + speech columns only) ...")
+    print("\nLoading speech text ...")
     speeches = pd.read_parquet(SPEECHES_PATH, columns=["speech_id", "speech"])
 
-    print("Loading partisan-core labels ...")
+    print("Loading labels ...")
     labels = pd.read_parquet(LABELS_PATH)
 
     # ------------------------------------------------------------------
@@ -443,63 +412,73 @@ if __name__ == "__main__":
     english_stops, geo_unigrams, blocked_bigrams, distinctive_names = build_filter_sets(VOTEVIEW_PATH)
 
     # ------------------------------------------------------------------
-    # 3. Merge text with labels (inner join keeps only labeled speeches)
+    # 3. Merge text with labels
     # ------------------------------------------------------------------
     print("\nMerging text with labels ...")
     speeches["speech_id"] = speeches["speech_id"].astype(str)
     labels["speech_id"] = labels["speech_id"].astype(str)
 
     merged = labels.merge(speeches, on="speech_id", how="inner")
-    del speeches  # free memory
+    del speeches
     print(f"  Merged: {len(merged):,} speeches with text + labels")
 
-    # ------------------------------------------------------------------
-    # 3b. Filter short procedural speeches
-    # ------------------------------------------------------------------
-    MIN_SPEECH_WORDS = 100
+    # Restrict to configured congress range
+    cong_lo, cong_hi = cfg.CONFIG["congress_range"]
+    merged = merged[merged["congress_int"].between(cong_lo, cong_hi)].reset_index(drop=True)
+    print(f"  After congress filter ({cong_lo}-{cong_hi}): {len(merged):,} speeches")
 
-    print(f"\nFiltering speeches shorter than {MIN_SPEECH_WORDS} words ...")
-    # Count spaces as proxy for word count (memory-efficient)
-    wc = merged["speech"].astype(str).str.count(" ") + 1
-    n_before = len(merged)
-    keep_mask = wc >= MIN_SPEECH_WORDS
-    merged = merged[keep_mask].copy()
-    n_after = len(merged)
-    del wc, keep_mask
-    pct_removed = (n_before - n_after) / n_before * 100
-    print(f"  Removed {n_before - n_after:,} speeches ({pct_removed:.1f}%) < {MIN_SPEECH_WORDS} words")
-    print(f"  Remaining: {n_after:,} substantive speeches")
+    # Filter to R and D only (exclude independents)
+    merged = merged[merged["party"].isin(["R", "D"])].reset_index(drop=True)
+    print(f"  After R/D filter: {len(merged):,} speeches")
+
+    # Min speech words filter
+    min_words = cfg.CONFIG.get("min_speech_words")
+    if min_words:
+        merged["word_count"] = merged["speech"].str.split().str.len()
+        merged = merged[merged["word_count"] >= min_words].reset_index(drop=True)
+        print(f"  After min_speech_words={min_words}: {len(merged):,} speeches")
 
     # ------------------------------------------------------------------
-    # 4. Aggregate text by legislator-congress
+    # 4. Optionally aggregate by legislator-congress
     # ------------------------------------------------------------------
-    print("\nAggregating by legislator-congress ...")
-
-    agg = (
-        merged
-        .groupby(["icpsr", "congress_int"])
-        .agg(
-            text=("speech", lambda x: " ".join(x.astype(str))),
-            party_code=("party", "first"),
-            label_rep_core=("label_rep_core", "max"),
-            label_dem_core=("label_dem_core", "max"),
-            nokken_poole_dim1=("nokken_poole_dim1", "first"),
-            n_speeches=("speech_id", "count"),
+    if AGGREGATE:
+        print("\nAggregating by legislator-congress ...")
+        agg = (
+            merged
+            .groupby(["icpsr", "congress_int"])
+            .agg(
+                text=("speech", lambda x: " ".join(x.astype(str))),
+                party_code=("party", "first"),
+                label_rep_core=("label_rep_core", "max"),
+                label_dem_core=("label_dem_core", "max"),
+                nokken_poole_dim1=("nokken_poole_dim1", "first"),
+                n_speeches=("speech_id", "count"),
+            )
+            .reset_index()
         )
-        .reset_index()
-    )
-    print(f"  Legislator-congress documents: {len(agg):,}")
+        texts = agg["text"].values
+        party_labels = agg["party_code"].values
+        meta = agg.drop(columns=["text"])
+        print(f"  Legislator-congress documents: {len(meta):,}")
+    else:
+        print("\nUsing individual speeches ...")
+        texts = merged["speech"].astype(str).values
+        party_labels = merged["party"].values
+        meta = merged.drop(columns=["speech"])
+        print(f"  Individual speech documents: {len(meta):,}")
+
+    n_docs = len(texts)
 
     # ------------------------------------------------------------------
-    # 5. Fit TF-IDF vectorizer with custom analyzer
+    # 5. Fit vectorizer
     # ------------------------------------------------------------------
-    print("\nFitting TF-IDF vectorizer (with Porter Stemmer + filtering) ...")
+    print(f"\nFitting {'CountVectorizer' if USE_WIDMER else 'TfidfVectorizer'} ...")
 
-    analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams, distinctive_names)
+    analyzer = build_analyzer(english_stops, geo_unigrams, blocked_bigrams,
+                              distinctive_names, bigrams_only=BIGRAMS_ONLY)
 
-    # Wrap with tqdm progress tracking (for display only)
-    n_docs = len(agg)
-    pbar = tqdm(total=n_docs * 2, desc="  TF-IDF (fit+transform)", unit="doc")
+    # Wrap with tqdm progress tracking
+    pbar = tqdm(total=n_docs * 2, desc="  Vectorizer (fit+transform)", unit="doc")
     _orig_call = analyzer.__call__
 
     def _tracking_call(doc):
@@ -509,69 +488,122 @@ if __name__ == "__main__":
 
     analyzer.__call__ = _tracking_call
 
-    vectorizer = TfidfVectorizer(
-        analyzer=analyzer,
-        min_df=0.001,
-        sublinear_tf=True,
-    )
+    if USE_WIDMER:
+        # Use CountVectorizer with low min_df as initial filter
+        # (Widmer freq filter applied afterwards)
+        vectorizer = CountVectorizer(
+            analyzer=analyzer,
+            min_df=5,  # low initial filter for memory efficiency
+        )
+        count_matrix = vectorizer.fit_transform(texts)
+    else:
+        vectorizer = TfidfVectorizer(
+            analyzer=analyzer,
+            min_df=cfg.CONFIG["tfidf_min_df"],
+            sublinear_tf=cfg.CONFIG.get("tfidf_sublinear_tf", True),
+        )
+        count_matrix = vectorizer.fit_transform(texts)
 
-    tfidf_matrix = vectorizer.fit_transform(agg["text"])
     pbar.close()
-
-    # Restore original __call__ so the saved analyzer is clean
     analyzer.__call__ = _orig_call
 
-    elapsed = time.time() - pipeline_start
-    print(f"  TF-IDF matrix shape: {tfidf_matrix.shape}")
-    print(f"  Vocabulary size: {len(vectorizer.vocabulary_):,}")
-    print(f"  Non-zero entries: {tfidf_matrix.nnz:,}")
-    print(f"  Elapsed: {elapsed:.1f}s")
+    feature_names = vectorizer.get_feature_names_out()
+    print(f"  Initial vocabulary: {len(feature_names):,} features")
+    print(f"  Matrix shape: {count_matrix.shape}")
 
     # ------------------------------------------------------------------
-    # 6. Save outputs
+    # 6. Apply frequency filter
+    # ------------------------------------------------------------------
+    if FREQ_FILTER == "widmer":
+        filter_idx = apply_widmer_freq_filter(count_matrix, party_labels, feature_names)
+        count_matrix = count_matrix[:, filter_idx]
+        filtered_features = feature_names[filter_idx]
+        print(f"  Filtered matrix: {count_matrix.shape}")
+    else:
+        filter_idx = np.arange(len(feature_names))
+        filtered_features = feature_names
+
+    # ------------------------------------------------------------------
+    # 7. Create filtered vectorizer for step 07
+    # ------------------------------------------------------------------
+    # Build a new vectorizer with the filtered vocabulary so step 07
+    # can directly transform newspaper text to the correct feature space
+    filtered_vocab = {feat: i for i, feat in enumerate(filtered_features)}
+    filtered_vectorizer = CountVectorizer(
+        analyzer=analyzer,
+        vocabulary=filtered_vocab,
+    )
+    # Set vocabulary_ attribute (normally set by fit(), but we use fixed vocabulary)
+    filtered_vectorizer.vocabulary_ = filtered_vocab
+    filtered_vectorizer.fixed_vocabulary_ = True
+
+    # ------------------------------------------------------------------
+    # 8. Normalize to relative frequencies (Widmer) or keep TF-IDF
+    # ------------------------------------------------------------------
+    if USE_WIDMER:
+        # L1 normalize rows: each row sums to 1 (relative frequency)
+        # sklearn normalize handles zero rows gracefully (returns zero rows)
+        feature_matrix = normalize(count_matrix.astype(np.float64), norm='l1', axis=1)
+        n_zero = (np.asarray(count_matrix.sum(axis=1)).ravel() == 0).sum()
+        print(f"  Normalized to relative frequencies (L1)")
+        if n_zero > 0:
+            print(f"  WARNING: {n_zero} zero-count rows (empty documents)")
+    else:
+        feature_matrix = count_matrix
+
+    # ------------------------------------------------------------------
+    # 9. Save outputs
     # ------------------------------------------------------------------
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    sp.save_npz(OUT_TFIDF, tfidf_matrix)
-    print(f"\n  Saved TF-IDF matrix -> {OUT_TFIDF}")
+    sp.save_npz(OUT_MATRIX, feature_matrix)
+    print(f"\n  Saved feature matrix -> {OUT_MATRIX}")
 
-    meta = agg.drop(columns=["text"])
+    # Also save with legacy name for backward compatibility
+    sp.save_npz(OUT_TFIDF, feature_matrix)
+
     meta.to_parquet(OUT_META)
     print(f"  Saved metadata -> {OUT_META}")
+    meta.to_parquet(OUT_TFIDF_META)  # backward compat
 
-    joblib.dump(vectorizer, OUT_VECTORIZER)
+    joblib.dump(filtered_vectorizer, OUT_VECTORIZER)
     print(f"  Saved vectorizer -> {OUT_VECTORIZER}")
+    # Also save with legacy name
+    joblib.dump(filtered_vectorizer, OUT_DIR / "05_tfidf_vectorizer.joblib")
+
+    np.save(OUT_VOCAB_IDX, filter_idx)
+    print(f"  Saved vocabulary filter indices -> {OUT_VOCAB_IDX}")
 
     # ------------------------------------------------------------------
-    # 7. Validation summary
+    # 10. Validation summary
     # ------------------------------------------------------------------
+    elapsed = time.time() - pipeline_start
+
     print("\n" + "=" * 72)
-    print("VALIDATION: Documents per congress")
+    print("VALIDATION SUMMARY")
     print("=" * 72)
 
-    summary = (
-        meta
-        .groupby("congress_int")
-        .agg(
-            n_legislators=("icpsr", "count"),
-            rep_core=("label_rep_core", "sum"),
-            dem_core=("label_dem_core", "sum"),
-            avg_speeches=("n_speeches", "mean"),
-        )
-    )
-    summary["avg_speeches"] = summary["avg_speeches"].round(1)
-    summary[["rep_core", "dem_core"]] = summary[["rep_core", "dem_core"]].astype(int)
-    print(summary.to_string())
+    n_rep = ((party_labels == "R") | (party_labels == 200)).sum()
+    n_dem = ((party_labels == "D") | (party_labels == 100)).sum()
+    print(f"  Total documents: {n_docs:,} ({n_rep:,} Rep, {n_dem:,} Dem)")
+    print(f"  Final vocabulary: {feature_matrix.shape[1]:,} features")
+
+    n_bigrams = sum(1 for f in filtered_features if " " in f)
+    n_unigrams = len(filtered_features) - n_bigrams
+    print(f"  Unigrams: {n_unigrams:,}  |  Bigrams: {n_bigrams:,}")
+
+    if n_bigrams > 0:
+        bigram_samples = [f for f in filtered_features if " " in f][:15]
+        print(f"  Sample bigrams: {bigram_samples}")
+
+    # Per-congress breakdown
+    cong_col = "congress_int"
+    if cong_col in meta.columns:
+        print(f"\n  Documents per congress:")
+        for cong, group in meta.groupby(cong_col):
+            n_r = (group["party"].isin(["R", 200])).sum() if "party" in group.columns else "?"
+            n_d = (group["party"].isin(["D", 100])).sum() if "party" in group.columns else "?"
+            print(f"    Congress {cong}: {len(group):,} docs ({n_r} Rep, {n_d} Dem)")
+
+    print(f"\n  Total time: {elapsed:.1f}s")
     print("=" * 72)
-
-    # Show sample features
-    feature_names = vectorizer.get_feature_names_out()
-    n_unigrams = sum(1 for f in feature_names if " " not in f)
-    n_bigrams = sum(1 for f in feature_names if " " in f)
-    print(f"\n  Unigrams: {n_unigrams:,}  |  Bigrams: {n_bigrams:,}")
-    print(f"  Sample unigrams: {list(feature_names[:10])}")
-    bigram_samples = [f for f in feature_names if " " in f][:10]
-    print(f"  Sample bigrams: {bigram_samples}")
-
-    total_time = time.time() - pipeline_start
-    print(f"\n  Total time: {total_time:.1f}s")

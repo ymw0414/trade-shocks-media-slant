@@ -1,11 +1,15 @@
 """
 07_prepare_newspapers.py
 
-Apply the pre-trained TF-IDF vectorizer (from step 05) to pre-cleaned
+Apply the pre-trained vectorizer (from step 05) to pre-cleaned
 newspaper articles, grouped by congress window.
 
-Assumes input data is already clean: name-standardized and filtered to
-the target sample by newspapers/03_apply_crosswalk.py.
+Widmer methodology (default):
+  CountVectorizer → raw counts → L1 normalize to relative frequencies.
+  This matches the speech feature space from step 05.
+
+Legacy mode:
+  TfidfVectorizer → TF-IDF values (no additional normalization).
 
 Year-to-Congress mapping:
   Congress 100 -> 1987-1988
@@ -18,8 +22,8 @@ Inputs:
   - data/processed/speeches/05_tfidf_vectorizer.joblib
 
 Outputs (per congress):
-  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
-  - data/processed/newspapers/07_newspaper_meta_cong_{cong}.parquet
+  - 07_newspaper_tfidf_cong_{cong}.npz  (sparse: relative freq or TF-IDF)
+  - 07_newspaper_meta_cong_{cong}.parquet
 """
 
 import gc
@@ -33,26 +37,28 @@ import scipy.sparse as sp
 from pathlib import Path
 from tqdm import tqdm
 from joblib import Parallel, delayed
+from sklearn.preprocessing import normalize
 
 # Ensure text_analyzer is importable (needed for unpickling the vectorizer)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "utils"))
 import text_analyzer  # noqa: F401 — registers module for joblib.load
 
 # ------------------------------------------------------------------
-# Paths
+# Paths (from pipeline_config — change RUN_NAME there for new runs)
 # ------------------------------------------------------------------
-BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
+import pipeline_config as cfg
 
-NEWSPAPER_DIR = BASE_DIR / "data" / "intermediate" / "newspapers"
-VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
+NEWSPAPER_DIR   = cfg.RAW_NEWSPAPERS
+VECTORIZER_PATH = cfg.SPEECH_DIR / "05_tfidf_vectorizer.joblib"
+OUT_DIR         = cfg.NEWS_DIR
 
-OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers"
+USE_RELATIVE_FREQ = cfg.CONFIG.get("use_relative_freq", True)
 
 # ------------------------------------------------------------------
-# Year-to-Congress mapping
+# Year-to-Congress mapping (dynamic from config)
 # ------------------------------------------------------------------
 CONGRESS_YEARS = {}
-for cong in range(100, 109):
+for cong in cfg.get_congresses():
     year1 = 1787 + (cong * 2)
     CONGRESS_YEARS[cong] = (year1, year1 + 1)
 
@@ -64,14 +70,22 @@ def _transform_chunk(vectorizer, texts):
     return vectorizer.transform(texts)
 
 
+def normalize_to_relative_freq(count_matrix):
+    """L1 normalize rows to relative frequencies, handling zero rows."""
+    # sklearn's normalize handles zero rows gracefully (returns zero rows)
+    return normalize(count_matrix.astype(np.float64), norm='l1', axis=1)
+
+
 # ==================================================================
 # Main
 # ==================================================================
 if __name__ == "__main__":
     # 1. Load vectorizer
-    print("Loading TF-IDF vectorizer ...")
+    print("Loading vectorizer ...")
     vectorizer = joblib.load(VECTORIZER_PATH)
-    print(f"  Vocabulary size: {len(vectorizer.vocabulary_):,}")
+    vocab = getattr(vectorizer, 'vocabulary_', None) or vectorizer.vocabulary
+    print(f"  Vocabulary size: {len(vocab):,}")
+    print(f"  Mode: {'relative frequency' if USE_RELATIVE_FREQ else 'TF-IDF'}")
 
     n_cores = max(1, joblib.cpu_count() or 1) if N_JOBS == -1 else max(1, N_JOBS)
     print(f"  Using {n_cores} CPU cores for parallel transform")
@@ -94,11 +108,11 @@ if __name__ == "__main__":
     grand_total = sum(congress_counts.values())
     print(f"\n  Total articles across all congresses: {grand_total:,}")
 
-    # 3. Process one congress at a time (load -> transform -> save -> free)
+    # 3. Process one congress at a time (load -> transform -> normalize -> save -> free)
     print("\nTransforming newspaper text ...")
     pipeline_start = time.time()
     total = len(congresses)
-    pbar = tqdm(total=grand_total, desc="  TF-IDF transform", unit="doc")
+    pbar = tqdm(total=grand_total, desc="  Transform", unit="doc")
 
     summary = []
 
@@ -135,9 +149,9 @@ if __name__ == "__main__":
         del articles
         gc.collect()
 
-        # Transform
+        # Transform to counts
         if n_cores == 1 or n_docs < 1000:
-            tfidf = vectorizer.transform(texts)
+            count_matrix = vectorizer.transform(texts)
         else:
             chunks = np.array_split(texts, min(n_cores, n_docs))
             chunks = [c for c in chunks if len(c) > 0]
@@ -149,14 +163,21 @@ if __name__ == "__main__":
                 for chunk in chunks
             )
             del chunks
-            tfidf = sp.vstack(results, format="csr")
+            count_matrix = sp.vstack(results, format="csr")
             del results
             gc.collect()
 
         pbar.update(n_docs)
 
+        # Normalize to relative frequencies if using Widmer mode
+        if USE_RELATIVE_FREQ:
+            feature_matrix = normalize_to_relative_freq(count_matrix)
+            del count_matrix
+        else:
+            feature_matrix = count_matrix
+
         # Save
-        sp.save_npz(OUT_DIR / f"07_newspaper_tfidf_cong_{cong}.npz", tfidf)
+        sp.save_npz(OUT_DIR / f"07_newspaper_tfidf_cong_{cong}.npz", feature_matrix)
         meta.to_parquet(OUT_DIR / f"07_newspaper_meta_cong_{cong}.parquet")
 
         elapsed = time.time() - window_start
@@ -164,11 +185,11 @@ if __name__ == "__main__":
         avg_per = total_elapsed / i
         remaining = avg_per * (total - i)
         pbar.write(f"  [{i}/{total}] Congress {cong}: {n_docs:,} articles from "
-                   f"{n_papers} papers, TF-IDF {tfidf.shape}  |  {elapsed:.1f}s  |  ETA: {remaining:.0f}s")
+                   f"{n_papers} papers, shape {feature_matrix.shape}  |  {elapsed:.1f}s  |  ETA: {remaining:.0f}s")
 
         summary.append((cong, year1, year1 + 1, n_docs, n_papers))
 
-        del tfidf, meta
+        del feature_matrix, meta
         gc.collect()
 
     pbar.close()

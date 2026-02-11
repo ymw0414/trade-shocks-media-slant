@@ -26,10 +26,17 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel"
+
+# Override paths for experiment runs (set by finetuning runner)
+_panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
+_fig_dir = os.environ.get("PIPELINE_FIG_DIR")
+_tab_dir = os.environ.get("PIPELINE_TAB_DIR")
+
+PANEL_PATH = (Path(_panel_dir) / "14_regression_panel.parquet" if _panel_dir
+              else BASE_DIR / "data" / "processed" / "panel"
               / "14_regression_panel.parquet")
-FIG_DIR = BASE_DIR / "output" / "figures"
-TAB_DIR = BASE_DIR / "output" / "tables"
+FIG_DIR = Path(_fig_dir) if _fig_dir else BASE_DIR / "output" / "figures"
+TAB_DIR = Path(_tab_dir) if _tab_dir else BASE_DIR / "output" / "tables"
 
 BASE_YEAR = 1993  # Last pre-NAFTA year (following Choi et al. 2024)
 END_YEAR = 2004   # Extended sample; China shock controlled in spec 2
@@ -110,9 +117,15 @@ def run_event_study(df, depvar, years, label):
                 rows.append({"year": yr, "coef": 0, "se": 0,
                              "ci_lo": 0, "ci_hi": 0})
                 continue
-            r = t.loc[f"vul_{yr}"]
-            rows.append({"year": yr, "coef": r["Estimate"], "se": r["Std. Error"],
-                         "ci_lo": r["2.5%"], "ci_hi": r["97.5%"]})
+            vname = f"vul_{yr}"
+            if vname in t.index:
+                r = t.loc[vname]
+                rows.append({"year": yr, "coef": r["Estimate"], "se": r["Std. Error"],
+                             "ci_lo": r["2.5%"], "ci_hi": r["97.5%"]})
+            else:
+                # Variable dropped due to multicollinearity
+                rows.append({"year": yr, "coef": np.nan, "se": np.nan,
+                             "ci_lo": np.nan, "ci_hi": np.nan})
         results[spec_name] = pd.DataFrame(rows)
 
     return results
@@ -145,13 +158,14 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
 
     ax.set_xlabel("Year", fontsize=12)
     ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
-    ax.set_title(f"Event Study: {depvar_label}", fontsize=14, fontweight="bold")
     ax.legend(fontsize=10, framealpha=0.9)
     ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
     ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
                         fontsize=10)
     ax.set_xlim(yrs[0] - 0.7, yrs[-1] + 0.7)
     ax.grid(axis="y", alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     fig.tight_layout(pad=0.3)
     fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05, facecolor="white")
@@ -184,13 +198,14 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
 
     ax.set_xlabel("Year", fontsize=12)
     ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
-    ax.set_title(f"Event Study: {title}", fontsize=14, fontweight="bold")
-    ax.legend(fontsize=10, framealpha=0.9)
+    ax.legend(fontsize=10, framealpha=0.9, loc="upper left")
     ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
     ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
                         fontsize=10)
     ax.set_xlim(yrs[0] - 0.7, yrs[-1] + 0.7)
     ax.grid(axis="y", alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     fig.tight_layout(pad=0.3)
     fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05, facecolor="white")

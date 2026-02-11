@@ -22,8 +22,13 @@ from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
+# Override paths for experiment runs (set by finetuning runner)
+_news_dir = os.environ.get("PIPELINE_NEWS_DIR")
+_panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
+
 # Inputs
-NEWSPAPER_PANEL = (BASE_DIR / "data" / "processed" / "newspapers"
+NEWSPAPER_PANEL = (Path(_news_dir) / "11_newspaper_year_panel_geo.parquet" if _news_dir
+                   else BASE_DIR / "data" / "processed" / "newspapers"
                    / "11_newspaper_year_panel_geo.parquet")
 CZ_NAFTA = (BASE_DIR / "data" / "processed" / "econ"
             / "12_nafta_vars_cz.parquet")
@@ -35,7 +40,7 @@ CZ_XW_PATH = (BASE_DIR / "data" / "raw" / "econ" / "crosswalk"
               / "cw_cty_czone" / "cw_cty_czone.dta")
 
 # Output
-OUT_DIR = BASE_DIR / "data" / "processed" / "panel"
+OUT_DIR = Path(_panel_dir) if _panel_dir else BASE_DIR / "data" / "processed" / "panel"
 
 NAFTA_YEAR = 1994
 

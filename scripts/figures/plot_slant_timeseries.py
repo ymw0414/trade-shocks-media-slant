@@ -57,6 +57,8 @@ def main():
                    linestyle="--", alpha=0.6)
         ax.set_title(title, fontsize=11)
         ax.tick_params(labelsize=9)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
 
         yrs = sorted(df["year"].unique())
         ax.set_xticks([yr for yr in yrs if yr % 3 == 0 or yr == yrs[0]])
@@ -77,11 +79,12 @@ def main():
     fig.tight_layout(pad=0.4, h_pad=1.0, w_pad=1.0)
     fig.subplots_adjust(bottom=0.07)
 
-    out_path = FIG_DIR / "slant_timeseries.png"
-    fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05,
-                facecolor="white")
+    for ext in ["png", "pdf"]:
+        out_path = FIG_DIR / f"slant_timeseries.{ext}"
+        fig.savefig(out_path, dpi=200, bbox_inches="tight", pad_inches=0.05,
+                    facecolor="white")
+        print(f"Saved: {out_path}")
     plt.close(fig)
-    print(f"Saved: {out_path}")
 
 
 if __name__ == "__main__":

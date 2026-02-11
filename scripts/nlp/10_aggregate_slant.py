@@ -45,11 +45,13 @@ import pandas as pd
 from pathlib import Path
 
 # ------------------------------------------------------------------
-# Paths
+# Paths (from pipeline_config — change RUN_NAME there for new runs)
 # ------------------------------------------------------------------
-BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
-OUT_DIR = NEWSPAPER_DIR
+import pipeline_config as cfg
+
+LABEL_DIR     = cfg.NEWSPAPER_LABELS   # fixed: 04_newspaper_labeled_*.parquet
+NEWSPAPER_DIR = cfg.NEWS_DIR           # run-dependent: 09_*.parquet
+OUT_DIR       = cfg.NEWS_DIR
 
 ECON_PERCENTILE = 90  # top 10%
 
@@ -62,7 +64,7 @@ SLANT_COLS = SLANT_COLS_RAW + SLANT_COLS_NORM
 # Main
 # ==================================================================
 if __name__ == "__main__":
-    congresses = list(range(100, 109))
+    congresses = cfg.get_congresses()
 
     print("Building newspaper-year panel ...\n")
     pipeline_start = time.time()
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     econ_chunks = []
 
     for cong in congresses:
-        label_path = NEWSPAPER_DIR / f"04_newspaper_labeled_cong_{cong}.parquet"
+        label_path = LABEL_DIR / f"04_newspaper_labeled_cong_{cong}.parquet"
         slant_path = NEWSPAPER_DIR / f"09_article_slant_norm_cong_{cong}.parquet"
 
         if not label_path.exists() or not slant_path.exists():

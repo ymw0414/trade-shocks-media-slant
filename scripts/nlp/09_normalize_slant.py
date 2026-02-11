@@ -19,18 +19,18 @@ Normalization:
   The gap also serves as a measure of congressional language polarization.
 
 Rolling-window mapping:
-  Model trained on (t-1, t) normalizes newspaper articles in congress t.
-  mu_R, mu_D computed from ALL legislators in congresses (t-1, t).
+  Model trained on congress t normalizes newspaper articles in congress t.
+  mu_R, mu_D computed from ALL legislators in congress(es) in the window.
 
 Inputs:
-  - data/processed/speeches/models/06_lasso_window_{prev}_{curr}.joblib
-  - data/processed/speeches/05_tfidf_matrix.npz
-  - data/processed/speeches/05_tfidf_meta.parquet
-  - data/processed/newspapers/08_article_slant_cong_{cong}.parquet
+  - models/06_lasso_window_{cong}.joblib
+  - speeches/05_tfidf_matrix.npz
+  - speeches/05_tfidf_meta.parquet
+  - newspapers/08_article_slant_cong_{cong}.parquet
 
 Outputs:
-  - data/processed/newspapers/09_article_slant_norm_cong_{cong}.parquet
-  - data/processed/newspapers/09_normalization_params.csv
+  - newspapers/09_article_slant_norm_cong_{cong}.parquet
+  - newspapers/09_normalization_params.csv
 """
 
 import gc
@@ -43,22 +43,19 @@ import scipy.sparse as sp
 from pathlib import Path
 
 # ------------------------------------------------------------------
-# Paths
+# Paths (from pipeline_config — change RUN_NAME there for new runs)
 # ------------------------------------------------------------------
-BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
+import pipeline_config as cfg
 
-SPEECH_DIR = BASE_DIR / "data" / "processed" / "speeches"
-MODEL_DIR = SPEECH_DIR / "models"
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
-
-SPEECH_TFIDF_PATH = SPEECH_DIR / "05_tfidf_matrix.npz"
-SPEECH_META_PATH = SPEECH_DIR / "05_tfidf_meta.parquet"
-
-OUT_DIR = NEWSPAPER_DIR
+MODEL_DIR         = cfg.MODEL_DIR
+NEWSPAPER_DIR     = cfg.NEWS_DIR
+SPEECH_MATRIX_PATH = cfg.INPUT_SPEECH_DIR / "05_tfidf_matrix.npz"
+SPEECH_META_PATH  = cfg.INPUT_SPEECH_DIR / "05_tfidf_meta.parquet"
+OUT_DIR           = cfg.NEWS_DIR
 
 
 def compute_raw_scores(X, coef):
-    """Compute raw slant decomposition from TF-IDF matrix and coefficients."""
+    """Compute raw slant decomposition from feature matrix and coefficients."""
     pos_mask = coef > 0
     neg_mask = coef < 0
 
@@ -77,34 +74,44 @@ def compute_raw_scores(X, coef):
 # Main
 # ==================================================================
 if __name__ == "__main__":
-    congresses = list(range(100, 109))
-    windows = [(t - 1, t) for t in congresses]
+    windows = cfg.get_windows()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Load speech data for computing legislator benchmarks
-    print("Loading speech TF-IDF and metadata ...")
-    X_speech = sp.load_npz(SPEECH_TFIDF_PATH)
+    print("Loading speech feature matrix and metadata ...")
+    X_speech = sp.load_npz(SPEECH_MATRIX_PATH)
     speech_meta = pd.read_parquet(SPEECH_META_PATH)
-    print(f"  Speeches: {X_speech.shape[0]:,} legislators x {X_speech.shape[1]:,} features")
 
-    # Restrict to intersection columns (from step 06)
-    intersection_path = MODEL_DIR / "06_intersection_cols.npy"
-    if intersection_path.exists():
-        intersection_cols = np.load(intersection_path)
-        X_speech = X_speech[:, intersection_cols]
-        print(f"  Restricted to intersection: {X_speech.shape[1]:,} features")
+    # Apply shared vocabulary mask if step 06 produced one
+    shared_vocab_path = MODEL_DIR / "06_shared_vocab_mask.npy"
+    if shared_vocab_path.exists():
+        shared_vocab_mask = np.load(shared_vocab_path)
+        X_speech = X_speech[:, shared_vocab_mask]
+        print(f"  Applied shared vocabulary mask: {int(shared_vocab_mask.sum()):,} / {len(shared_vocab_mask):,} features")
 
-    print("\nComputing normalization parameters and normalizing ...\n")
+    # Detect party column (matches step 05 output)
+    PARTY_COL = "party" if "party" in speech_meta.columns else "party_code"
+
+    print(f"  Speeches: {X_speech.shape[0]:,} docs x {X_speech.shape[1]:,} features")
+    print(f"  Party column: '{PARTY_COL}'")
+
+    NORM_METHOD = cfg.CONFIG.get("norm_method", "raw_gap")
+    print(f"\nNormalization method: {NORM_METHOD}")
+    if NORM_METHOD == "prob_direct":
+        print("  -> Using P(R) directly as net_slant_norm (no gap division)")
+    print("Computing normalization parameters and normalizing ...\n")
 
     pipeline_start = time.time()
     norm_params = []
 
-    for i, (cong_prev, cong_curr) in enumerate(windows, 1):
+    for i, window_congs in enumerate(windows, 1):
+        cong_curr = window_congs[-1]
         window_start = time.time()
 
         # 1. Load model
-        model_path = MODEL_DIR / f"06_lasso_window_{cong_prev}_{cong_curr}.joblib"
+        window_file = "_".join(str(c) for c in window_congs)
+        model_path = MODEL_DIR / f"06_lasso_window_{window_file}.joblib"
         if not model_path.exists():
             print(f"  WARNING: {model_path.name} not found, skipping")
             continue
@@ -112,23 +119,30 @@ if __name__ == "__main__":
         coef = model.coef_[0]
 
         # 2. Compute mu_R, mu_D from ALL legislators in window
-        mask_window = speech_meta["congress_int"].isin([cong_prev, cong_curr])
-        mask_rep = mask_window & (speech_meta["party_code"] == "R")
-        mask_dem = mask_window & (speech_meta["party_code"] == "D")
+        mask_window = speech_meta["congress_int"].isin(window_congs)
+        mask_rep = mask_window & ((speech_meta[PARTY_COL] == "R") | (speech_meta[PARTY_COL] == 200))
+        mask_dem = mask_window & ((speech_meta[PARTY_COL] == "D") | (speech_meta[PARTY_COL] == 100))
 
         idx_rep = speech_meta.index[mask_rep].values
         idx_dem = speech_meta.index[mask_dem].values
 
-        right_rep, left_rep = compute_raw_scores(X_speech[idx_rep], coef)
-        right_dem, left_dem = compute_raw_scores(X_speech[idx_dem], coef)
+        if NORM_METHOD in ("prob_gap", "prob_direct"):
+            # Probability-based: E[P(R)|R] and E[P(R)|D]
+            mu_R = float(np.mean(model.predict_proba(X_speech[idx_rep])[:, 1]))
+            mu_D = float(np.mean(model.predict_proba(X_speech[idx_dem])[:, 1]))
+        else:
+            # Raw score gap: E[X@coef|R] - E[X@coef|D]
+            right_rep, left_rep = compute_raw_scores(X_speech[idx_rep], coef)
+            right_dem, left_dem = compute_raw_scores(X_speech[idx_dem], coef)
+            mu_R = np.mean(right_rep - left_rep)
+            mu_D = np.mean(right_dem - left_dem)
 
-        mu_R = np.mean(right_rep - left_rep)
-        mu_D = np.mean(right_dem - left_dem)
         gap = mu_R - mu_D
 
+        window_label = "+".join(str(c) for c in window_congs)
         norm_params.append({
             "congress": cong_curr,
-            "window": f"{cong_prev}+{cong_curr}",
+            "window": window_label,
             "n_rep": len(idx_rep),
             "n_dem": len(idx_dem),
             "mu_R": mu_R,
@@ -145,10 +159,17 @@ if __name__ == "__main__":
         n_articles = len(raw)
 
         # 4. Normalize
-        raw["net_slant_norm"] = raw["net_slant"] / gap
-        raw["right_norm"] = raw["right_intensity"] / gap
-        raw["left_norm"] = raw["left_intensity"] / gap
-        raw["politicization_norm"] = raw["politicization"] / gap
+        if NORM_METHOD == "prob_direct":
+            # Use P(R) directly — bounded [0,1], cross-year comparable
+            raw["net_slant_norm"] = raw["prob_R"]
+            raw["right_norm"] = raw["right_intensity"]
+            raw["left_norm"] = raw["left_intensity"]
+            raw["politicization_norm"] = raw["politicization"]
+        else:
+            raw["net_slant_norm"] = raw["net_slant"] / gap
+            raw["right_norm"] = raw["right_intensity"] / gap
+            raw["left_norm"] = raw["left_intensity"] / gap
+            raw["politicization_norm"] = raw["politicization"] / gap
 
         # 5. Save
         out_path = OUT_DIR / f"09_article_slant_norm_cong_{cong_curr}.parquet"

@@ -17,10 +17,13 @@ import numpy as np
 import pandas as pd
 
 BASE = os.environ.get("SHIFTING_SLANT_DIR", "C:/Users/ymw04/Dropbox/shifting_slant")
+sys.path.insert(0, os.path.join(BASE, "scripts", "nlp"))
+import pipeline_config as cfg
+
 DRAFT = os.path.join(BASE, "draft")
 FIGURES = os.path.join(BASE, "output", "figures")
-MODELS = os.path.join(BASE, "data", "processed", "speeches", "models")
-NEWS   = os.path.join(BASE, "data", "processed", "newspapers")
+MODELS = str(cfg.MODEL_DIR)
+NEWS   = str(cfg.NEWS_DIR)
 
 os.makedirs(DRAFT, exist_ok=True)
 os.makedirs(FIGURES, exist_ok=True)
@@ -86,7 +89,7 @@ print("=== 2. Top Partisan Phrases Table ===")
 sys.path.insert(0, os.path.join(BASE, "scripts", "utils"))
 import joblib
 
-vectorizer = joblib.load(os.path.join(BASE, "data", "processed", "speeches", "05_tfidf_vectorizer.joblib"))
+vectorizer = joblib.load(str(cfg.SPEECH_DIR / "05_tfidf_vectorizer.joblib"))
 intersection_cols = np.load(os.path.join(MODELS, "06_intersection_cols.npy"))
 feature_names = vectorizer.get_feature_names_out()[intersection_cols]
 
@@ -294,8 +297,6 @@ ax.set_yticks(y_pos)
 ax.set_yticklabels(combined.index, fontsize=9)
 ax.set_xlabel("Mean normalized net slant", fontsize=11)
 ax.axvline(0, color="black", linewidth=0.5, zorder=0)
-ax.set_title("Newspaper Slant Ranking: Top 10 Right and Left", fontsize=12)
-
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 

@@ -1,0 +1,96 @@
+{
+  "exp_win2": {
+    "description": "2-congress rolling windows (smooth LASSO across adjacent congresses)",
+    "requires_full": false,
+    "overrides": {
+      "window_size": 2
+    }
+  },
+  "exp_win3": {
+    "description": "3-congress rolling windows (maximum smoothing)",
+    "requires_full": false,
+    "overrides": {
+      "window_size": 3
+    }
+  },
+  "exp_core": {
+    "description": "Train LASSO on partisan core only (top/bottom 20% Nokken-Poole)",
+    "requires_full": false,
+    "overrides": {
+      "partisan_core_only": true
+    }
+  },
+  "exp_cv": {
+    "description": "Use 5-fold CV for lambda selection instead of BIC",
+    "requires_full": false,
+    "overrides": {
+      "lasso_lambda_selection": "cv"
+    }
+  },
+  "exp_core_win2": {
+    "description": "Partisan core + 2-congress windows",
+    "requires_full": false,
+    "overrides": {
+      "partisan_core_only": true,
+      "window_size": 2
+    }
+  },
+  "exp_core_win3": {
+    "description": "Partisan core + 3-congress windows",
+    "requires_full": false,
+    "overrides": {
+      "partisan_core_only": true,
+      "window_size": 3
+    }
+  },
+  "exp_cv_win2": {
+    "description": "CV lambda + 2-congress windows",
+    "requires_full": false,
+    "overrides": {
+      "lasso_lambda_selection": "cv",
+      "window_size": 2
+    }
+  },
+  "exp_cv_win3": {
+    "description": "CV lambda + 3-congress windows",
+    "requires_full": false,
+    "overrides": {
+      "lasso_lambda_selection": "cv",
+      "window_size": 3
+    }
+  },
+  "exp_core_cv_win3": {
+    "description": "Core + CV + 3-congress windows (all non-Widmer choices)",
+    "requires_full": false,
+    "overrides": {
+      "partisan_core_only": true,
+      "lasso_lambda_selection": "cv",
+      "window_size": 3
+    }
+  },
+  "exp_win2_sign": {
+    "description": "2-congress windows + sign consistency filter (remove flipping phrases)",
+    "requires_full": false,
+    "overrides": {
+      "window_size": 2,
+      "sign_consistency_filter": true
+    }
+  },
+  "exp_win2_shared": {
+    "description": "2-congress windows + mild shared vocab filter (0.01%)",
+    "requires_full": false,
+    "overrides": {
+      "window_size": 2,
+      "shared_vocab_min_df": 0.0001
+    }
+  },
+  "exp_win2_sign_shared": {
+    "description": "2-congress windows + sign filter + shared vocab (0.01%)",
+    "requires_full": false,
+    "overrides": {
+      "window_size": 2,
+      "sign_consistency_filter": true,
+      "shared_vocab_min_df": 0.0001
+    }
+  }
+}

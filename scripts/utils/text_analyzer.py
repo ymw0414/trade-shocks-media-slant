@@ -165,9 +165,10 @@ class TextAnalyzer:
       6. Filter blocked bigrams (geographic + legislator names)
     """
 
-    def __init__(self, single_stops, blocked_bigrams):
+    def __init__(self, single_stops, blocked_bigrams, bigrams_only=False):
         self.single_stops = single_stops
         self.blocked_bigrams = blocked_bigrams
+        self.bigrams_only = bigrams_only
         self.stemmer = PorterStemmer()
         self.stem_cache = {}
         self.token_re = re.compile(r"[a-z]+")
@@ -192,7 +193,11 @@ class TextAnalyzer:
             if len(s) >= 2 and s not in self.single_stops:
                 stemmed.append(s)
 
-        features = list(stemmed)
+        if self.bigrams_only:
+            features = []
+        else:
+            features = list(stemmed)
+
         for i in range(len(stemmed) - 1):
             bg = stemmed[i] + " " + stemmed[i + 1]
             if bg not in self.blocked_bigrams:

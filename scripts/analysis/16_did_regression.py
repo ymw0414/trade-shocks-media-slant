@@ -24,9 +24,15 @@ import pyfixest as pf
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PANEL_PATH = (BASE_DIR / "data" / "processed" / "panel"
+
+# Override paths for experiment runs (set by finetuning runner)
+_panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
+_tab_dir = os.environ.get("PIPELINE_TAB_DIR")
+
+PANEL_PATH = (Path(_panel_dir) / "14_regression_panel.parquet" if _panel_dir
+              else BASE_DIR / "data" / "processed" / "panel"
               / "14_regression_panel.parquet")
-TAB_DIR = BASE_DIR / "output" / "tables"
+TAB_DIR = Path(_tab_dir) if _tab_dir else BASE_DIR / "output" / "tables"
 
 NAFTA_YEAR = 1994
 END_YEAR = 2004  # Extended sample; China shock controlled in spec 3

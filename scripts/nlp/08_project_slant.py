@@ -1,31 +1,28 @@
 """
 08_project_slant.py
 
-Project LASSO coefficients onto newspaper TF-IDF matrices to compute
+Project LASSO coefficients onto newspaper feature matrices to compute
 article-level slant scores.
 
-No predict_proba — the model was trained on partisan-core legislators
-(extreme ~20%), so probability outputs are conceptually meaningless for
-newspaper articles. Instead, we directly decompose the linear score:
+Scoring formula (Widmer methodology):
+  Speech_Partisanship_n = sum(f_bn * phi_b)
+  where f_bn = relative bigram frequency, phi_b = LASSO coefficient.
 
+Decomposition (our addition):
   right_intensity  = X[:, pos] @ coef[pos]      (Republican language usage)
   left_intensity   = X[:, neg] @ |coef[neg]|     (Democratic language usage)
   net_slant        = right - left
   politicization   = right + left
 
-Note: X is a TF-IDF matrix (sublinear_tf, L2-normed), not raw counts.
-This differs from G&S's multinomial model but controls for document length
-and word frequency effects.
-
 Rolling-window mapping:
-  Model trained on (t-1, t) scores newspaper articles in congress t.
+  Model trained on congress t scores newspaper articles in congress t.
 
 Inputs:
-  - data/processed/speeches/models/06_lasso_window_{prev}_{curr}.joblib
-  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - models/06_lasso_window_{cong}.joblib
+  - newspapers/07_newspaper_tfidf_cong_{cong}.npz
 
 Outputs (per congress):
-  - data/processed/newspapers/08_article_slant_cong_{cong}.parquet
+  - newspapers/08_article_slant_cong_{cong}.parquet
 """
 
 import gc
@@ -38,66 +35,63 @@ import scipy.sparse as sp
 from pathlib import Path
 
 # ------------------------------------------------------------------
-# Paths
+# Paths (from pipeline_config — change RUN_NAME there for new runs)
 # ------------------------------------------------------------------
-BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
+import pipeline_config as cfg
 
-MODEL_DIR = BASE_DIR / "data" / "processed" / "speeches" / "models"
-NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
-
-OUT_DIR = NEWSPAPER_DIR
+MODEL_DIR     = cfg.MODEL_DIR
+NEWSPAPER_DIR = cfg.INPUT_NEWS_DIR   # read step 07 outputs (may be shared)
+OUT_DIR       = cfg.NEWS_DIR         # write step 08 outputs (run-specific)
 
 
 # ==================================================================
 # Main
 # ==================================================================
 if __name__ == "__main__":
-    congresses = list(range(100, 109))
-    windows = [(t - 1, t) for t in congresses]  # (99,100) ... (107,108)
+    windows = cfg.get_windows()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load intersection column indices (from step 06)
-    intersection_path = MODEL_DIR / "06_intersection_cols.npy"
-    if intersection_path.exists():
-        intersection_cols = np.load(intersection_path)
-        print(f"Loaded intersection columns: {len(intersection_cols):,} features")
-        use_intersection = True
-    else:
-        print("WARNING: 06_intersection_cols.npy not found, using full feature space")
-        use_intersection = False
+    # Load shared vocabulary mask if step 06 produced one
+    shared_vocab_path = MODEL_DIR / "06_shared_vocab_mask.npy"
+    shared_vocab_mask = None
+    if shared_vocab_path.exists():
+        shared_vocab_mask = np.load(shared_vocab_path)
+        n_keep = int(shared_vocab_mask.sum())
+        print(f"Loaded shared vocabulary mask: {n_keep:,} / {len(shared_vocab_mask):,} features\n")
 
-    print("Projecting LASSO coefficients onto newspaper TF-IDF ...\n")
+    print("Projecting LASSO coefficients onto newspaper features ...\n")
 
     pipeline_start = time.time()
     summary = []
 
-    for i, (cong_prev, cong_curr) in enumerate(windows, 1):
+    for i, window_congs in enumerate(windows, 1):
+        cong_curr = window_congs[-1]
         window_start = time.time()
 
         # 1. Load model
-        model_path = MODEL_DIR / f"06_lasso_window_{cong_prev}_{cong_curr}.joblib"
+        window_file = "_".join(str(c) for c in window_congs)
+        model_path = MODEL_DIR / f"06_lasso_window_{window_file}.joblib"
         if not model_path.exists():
             print(f"  WARNING: {model_path.name} not found, skipping")
             continue
         model = joblib.load(model_path)
-        coef = model.coef_[0]  # shape (n_intersection_features,)
+        coef = model.coef_[0]  # shape (n_features,)
 
         pos_mask = coef > 0
         neg_mask = coef < 0
         n_pos = pos_mask.sum()
         n_neg = neg_mask.sum()
 
-        # 2. Load newspaper TF-IDF (restrict to intersection columns)
-        tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
-        if not tfidf_path.exists():
-            print(f"  WARNING: {tfidf_path.name} not found, skipping")
+        # 2. Load newspaper feature matrix
+        feat_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
+        if not feat_path.exists():
+            print(f"  WARNING: {feat_path.name} not found, skipping")
             continue
-        X = sp.load_npz(tfidf_path)
+        X = sp.load_npz(feat_path)
+        if shared_vocab_mask is not None:
+            X = X[:, shared_vocab_mask]
         n_articles = X.shape[0]
-
-        if use_intersection:
-            X = X[:, intersection_cols]
 
         # 3. Compute scores
         right_intensity = X[:, pos_mask].dot(coef[pos_mask])
@@ -112,12 +106,16 @@ if __name__ == "__main__":
         net_slant = right_intensity - left_intensity
         politicization = right_intensity + left_intensity
 
+        # 3b. Predicted probability P(Republican) — bounded [0,1], no normalization needed
+        prob_R = model.predict_proba(X)[:, 1]
+
         # 4. Save
         df = pd.DataFrame({
             "right_intensity": right_intensity,
             "left_intensity": left_intensity,
             "net_slant": net_slant,
             "politicization": politicization,
+            "prob_R": prob_R,
         })
 
         out_path = OUT_DIR / f"08_article_slant_cong_{cong_curr}.parquet"
@@ -137,6 +135,8 @@ if __name__ == "__main__":
             "net_slant_mean": np.mean(net_slant),
             "net_slant_std": np.std(net_slant),
             "politicization_mean": np.mean(politicization),
+            "prob_R_mean": np.mean(prob_R),
+            "prob_R_std": np.std(prob_R),
         }
         summary.append(stats)
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
               f"net_slant mean={stats['net_slant_mean']:.4f} std={stats['net_slant_std']:.4f}  |  "
               f"{elapsed:.1f}s  ETA: {remaining:.0f}s")
 
-        del model, coef, X, right_intensity, left_intensity, net_slant, politicization, df
+        del model, coef, X, right_intensity, left_intensity, net_slant, politicization, prob_R, df
         gc.collect()
 
     # Summary
