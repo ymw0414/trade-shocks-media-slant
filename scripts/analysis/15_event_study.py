@@ -8,35 +8,43 @@ Two specifications (both with paper FE + year FE + division×year FE, cluster CZ
   Spec 1 (baseline): vulnerability × year only
   Spec 2 (controls): + china_shock × year + manushare × year
 
+Outcomes:
+  Unconditional: net_slant_norm, politicization_norm
+  Extensive margin: ext_nonzero, ext_R, ext_D
+  Intensive margin: int_net_slant_norm, int_R_norm, int_D_norm
+
 Inputs:
   - data/processed/panel/14_regression_panel.parquet
 
 Outputs:
   - output/figures/event_study_{depvar}.png   (one per outcome)
-  - output/figures/event_study_intensity.png  (right vs left combined)
-  - output/figures/event_study_intensity_econ.png
+  - output/figures/event_study_ext_R_vs_D.png (combined extensive)
+  - output/figures/event_study_int_R_vs_D.png (combined intensive)
   - output/tables/event_study_coefficients.csv
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
+import pipeline_config as cfg
+
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-# Override paths for experiment runs (set by finetuning runner)
+# Override paths for experiment runs (env var takes priority over pipeline_config)
 _panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
 _fig_dir = os.environ.get("PIPELINE_FIG_DIR")
 _tab_dir = os.environ.get("PIPELINE_TAB_DIR")
 
 PANEL_PATH = (Path(_panel_dir) / "14_regression_panel.parquet" if _panel_dir
-              else BASE_DIR / "data" / "processed" / "panel"
-              / "14_regression_panel.parquet")
-FIG_DIR = Path(_fig_dir) if _fig_dir else BASE_DIR / "output" / "figures"
-TAB_DIR = Path(_tab_dir) if _tab_dir else BASE_DIR / "output" / "tables"
+              else cfg.PANEL_DIR / "14_regression_panel.parquet")
+FIG_DIR = Path(_fig_dir) if _fig_dir else cfg.FIG_DIR
+TAB_DIR = Path(_tab_dir) if _tab_dir else cfg.TAB_DIR
 
 BASE_YEAR = 1993  # Last pre-NAFTA year (following Choi et al. 2024)
 END_YEAR = 2004   # Extended sample; China shock controlled in spec 2
@@ -142,15 +150,15 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     ax.errorbar(yrs - offset, coefs_base["coef"],
                 yerr=[coefs_base["coef"] - coefs_base["ci_lo"],
                       coefs_base["ci_hi"] - coefs_base["coef"]],
-                fmt="o", color="#cb181d", markersize=4, capsize=2.5,
+                fmt="o", color="#333333", markersize=4, capsize=2.5,
                 linewidth=1.0, label="Baseline")
 
-    # With controls
+    # With controls (teal)
     ax.errorbar(yrs + offset, coefs_ctrl["coef"],
                 yerr=[coefs_ctrl["coef"] - coefs_ctrl["ci_lo"],
                       coefs_ctrl["ci_hi"] - coefs_ctrl["coef"]],
-                fmt="s", color="#2171b5", markersize=4, capsize=2.5,
-                linewidth=1.0, label="+ China shock, manushare")
+                fmt="s", color="#009688", markersize=4, capsize=2.5,
+                linewidth=1.0, linestyle="none", label="+ China shock, manushare")
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
@@ -173,8 +181,9 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     print(f"    Saved: {out_path}")
 
 
-def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
-    """Plot right and left intensity on the same axes (controlled spec)."""
+def plot_combined_intensity(coefs_right, coefs_left, title, out_path,
+                           label_right="Right Intensity", label_left="Left Intensity"):
+    """Plot right and left on the same axes (controlled spec)."""
     fig, ax = plt.subplots(figsize=(12, 6))
 
     yrs = coefs_right["year"].values
@@ -183,14 +192,14 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path):
     ax.errorbar(yrs - offset, coefs_right["coef"],
                 yerr=[coefs_right["coef"] - coefs_right["ci_lo"],
                       coefs_right["ci_hi"] - coefs_right["coef"]],
-                fmt="o", color="#cb181d", markersize=4, capsize=2.5,
-                linewidth=1.0, label="Right Intensity")
+                fmt="o", color="#b83a3e", markersize=4, capsize=2.5,
+                linewidth=1.0, label=label_right)
 
     ax.errorbar(yrs + offset, coefs_left["coef"],
                 yerr=[coefs_left["coef"] - coefs_left["ci_lo"],
                       coefs_left["ci_hi"] - coefs_left["coef"]],
-                fmt="s", color="#2171b5", markersize=4, capsize=2.5,
-                linewidth=1.0, label="Left Intensity")
+                fmt="s", color="#3d65a5", markersize=4, capsize=2.5,
+                linewidth=1.0, label=label_left)
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
@@ -222,16 +231,26 @@ def main():
     print(f"  {len(df):,} obs, {df['paper_id'].nunique()} papers, "
           f"{df['cz'].nunique()} CZs, {df['division'].nunique()} divisions")
 
+    # Derived variable: net extensive margin (ext_R - ext_D)
+    df["ext_net"] = df["ext_R"] - df["ext_D"]
+
     outcomes = [
-        ("right_norm",               "Right Intensity (Normalized)"),
-        ("left_norm",                "Left Intensity (Normalized)"),
-        ("net_slant_norm",           "Net Slant (Normalized)"),
-        ("politicization_norm",      "Politicization (Normalized)"),
-        ("right_norm_econ",          "Right Intensity \u2014 Econ Articles (Normalized)"),
-        ("left_norm_econ",           "Left Intensity \u2014 Econ Articles (Normalized)"),
-        ("net_slant_norm_econ",      "Net Slant \u2014 Econ Articles (Normalized)"),
-        ("politicization_norm_econ", "Politicization \u2014 Econ Articles (Normalized)"),
-        ("econ_share",               "Economic Article Share"),
+        # Unconditional
+        ("net_slant_norm",       "Net Slant (Normalized)"),
+        ("politicization_norm",  "Politicization (Normalized)"),
+        ("right_norm",           "Right Intensity (Normalized)"),
+        ("left_norm",            "Left Intensity (Normalized)"),
+        # Extensive margins
+        ("ext_net",              "Net Extensive Margin (Share R $-$ Share D)"),
+        ("ext_nonzero",          "Share Non-Zero Articles"),
+        ("ext_R",                "Share R-Leaning Articles"),
+        ("ext_D",                "Share D-Leaning Articles"),
+        # Intensive margins
+        ("int_net_slant_norm",   "Net Slant (Norm, Intensive)"),
+        ("int_R_norm",           "R Intensity (Norm, Intensive)"),
+        ("int_D_norm",           "D Intensity (Norm, Intensive)"),
+        ("int_right_norm",       "R Component (Norm, Intensive)"),
+        ("int_left_norm",        "L Component (Norm, Intensive)"),
     ]
 
     all_results = {}  # depvar -> {baseline: df, controls: df}
@@ -245,35 +264,43 @@ def main():
             c["spec"] = spec_name
             all_rows.append(c)
 
-    # --- Individual plots with baseline vs controls ---
-    individual = [
-        ("net_slant_norm",           "Net Slant (Normalized)"),
-        ("politicization_norm",      "Politicization (Normalized)"),
-        ("net_slant_norm_econ",      "Net Slant \u2014 Econ Articles (Normalized)"),
-        ("politicization_norm_econ", "Politicization \u2014 Econ Articles (Normalized)"),
-        ("econ_share",               "Economic Article Share"),
-    ]
-    for depvar, label in individual:
-        out_name = depvar.replace("_norm", "").replace("_econ", "_econ")
+    # --- Individual plots with baseline vs controls (ALL outcomes) ---
+    for depvar, label in outcomes:
         plot_event_study_dual(
             all_results[depvar]["baseline"],
             all_results[depvar]["controls"],
             label,
-            FIG_DIR / f"event_study_{out_name}.png",
+            FIG_DIR / f"event_study_{depvar}.png",
         )
 
-    # --- Combined right vs left plots (controlled spec) ---
+    # --- Combined plots (controlled spec) ---
+    # Unconditional R vs L decomposition (right_norm - left_norm = net_slant_norm)
     plot_combined_intensity(
         all_results["right_norm"]["controls"],
         all_results["left_norm"]["controls"],
-        "Right vs. Left Intensity (Normalized, with controls)",
-        FIG_DIR / "event_study_intensity.png",
+        "R vs. L Component (Normalized, Unconditional)",
+        FIG_DIR / "event_study_RL_decomp.png",
+        label_right="Republican component (R\u0303)",
+        label_left="Democratic component (L\u0303)",
     )
+    # Extensive: R vs D share
     plot_combined_intensity(
-        all_results["right_norm_econ"]["controls"],
-        all_results["left_norm_econ"]["controls"],
-        "Right vs. Left Intensity \u2014 Econ Articles (Normalized, with controls)",
-        FIG_DIR / "event_study_intensity_econ.png",
+        all_results["ext_R"]["controls"],
+        all_results["ext_D"]["controls"],
+        "R-Leaning vs. D-Leaning Article Share (with controls)",
+        FIG_DIR / "event_study_ext_R_vs_D.png",
+        label_right="Share R-leaning",
+        label_left="Share D-leaning",
+    )
+    # Intensive: R vs L components (conditional on nonzero)
+    # int_right_norm - int_left_norm = int_net_slant_norm
+    plot_combined_intensity(
+        all_results["int_right_norm"]["controls"],
+        all_results["int_left_norm"]["controls"],
+        "R vs. L Component (Norm, Intensive, with controls)",
+        FIG_DIR / "event_study_int_R_vs_D.png",
+        label_right="Republican component (\u0168 | nonzero)",
+        label_left="Democratic component (L\u0303 | nonzero)",
     )
 
     # --- Save coefficients ---

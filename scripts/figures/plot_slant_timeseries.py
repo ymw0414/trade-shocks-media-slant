@@ -28,7 +28,7 @@ def main():
     FIG_DIR.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_parquet(PANEL_PATH)
-    df = df[df["cz"].notna() & df["vulnerability1990_scaled"].notna()].copy()
+    df = df[df["cz"].notna() & df["vulnerability1990_scaled"].notna() & df["manushare1990"].notna()].copy()
 
     # Split at median vulnerability
     med_vul = df.groupby("paper")["vulnerability1990_scaled"].first().median()

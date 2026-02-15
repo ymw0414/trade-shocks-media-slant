@@ -289,7 +289,7 @@ combined = pd.concat([top_left, top_right])
 
 fig, ax = plt.subplots(figsize=(8, 7))
 
-colors = ["#2166ac" if v < 0 else "#b2182b" for v in combined.values]
+colors = ["#4c72b0" if v < 0 else "#c44e52" for v in combined.values]
 y_pos = range(len(combined))
 
 ax.barh(y_pos, combined.values, color=colors, edgecolor="none", height=0.7)

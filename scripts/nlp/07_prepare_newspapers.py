@@ -139,6 +139,13 @@ if __name__ == "__main__":
         del dfs
         articles = articles.dropna(subset=["text"])
 
+        # Dev subsample (for quick iteration)
+        news_sample = cfg.CONFIG.get("newspaper_sample_frac")
+        if news_sample is not None and 0 < news_sample < 1:
+            sample_idx = articles.sample(frac=news_sample, random_state=42).index
+            np.save(OUT_DIR / f"07_sample_idx_cong_{cong}.npy", sample_idx.values)
+            articles = articles.loc[sample_idx].reset_index(drop=True)
+
         # Combine title + text
         texts = (articles["title"].fillna("") + " " + articles["text"]).values
         n_docs = len(texts)

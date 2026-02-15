@@ -16,20 +16,23 @@ Outputs:
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
+import pipeline_config as cfg
+
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-# Override paths for experiment runs (set by finetuning runner)
+# Override paths for experiment runs (env var takes priority over pipeline_config)
 _news_dir = os.environ.get("PIPELINE_NEWS_DIR")
 _panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
 
 # Inputs
 NEWSPAPER_PANEL = (Path(_news_dir) / "11_newspaper_year_panel_geo.parquet" if _news_dir
-                   else BASE_DIR / "data" / "processed" / "newspapers"
-                   / "11_newspaper_year_panel_geo.parquet")
+                   else cfg.NEWS_DIR / "11_newspaper_year_panel_geo.parquet")
 CZ_NAFTA = (BASE_DIR / "data" / "processed" / "econ"
             / "12_nafta_vars_cz.parquet")
 COUNTY_NAFTA = (BASE_DIR / "data" / "processed" / "econ"
@@ -40,7 +43,7 @@ CZ_XW_PATH = (BASE_DIR / "data" / "raw" / "econ" / "crosswalk"
               / "cw_cty_czone" / "cw_cty_czone.dta")
 
 # Output
-OUT_DIR = Path(_panel_dir) if _panel_dir else BASE_DIR / "data" / "processed" / "panel"
+OUT_DIR = Path(_panel_dir) if _panel_dir else cfg.PANEL_DIR
 
 NAFTA_YEAR = 1994
 
@@ -101,6 +104,14 @@ def main():
     panel["cz"] = panel["cz"].astype("Int64")
     print(f"  {len(panel):,} rows, {panel['paper'].nunique()} papers, "
           f"{panel['cz'].nunique()} CZs, years {panel['year'].min()}-{panel['year'].max()}")
+
+    # Drop national newspapers (content is not local)
+    national = cfg.NATIONAL_PAPERS
+    n_national = panel["paper"].isin(national).sum()
+    if n_national > 0:
+        papers_dropped = panel.loc[panel["paper"].isin(national), "paper"].unique().tolist()
+        print(f"  Dropping {n_national} rows from {len(papers_dropped)} national papers: {papers_dropped}")
+        panel = panel[~panel["paper"].isin(national)].copy()
 
     # Drop rows without CZ assignment
     n_no_cz = panel["cz"].isna().sum()

@@ -17,22 +17,26 @@ Outputs:
 """
 
 import os
+import sys
 import pandas as pd
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
+import pipeline_config as cfg
 
 # ------------------------------------------------------------------
 # Paths
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-# Override paths for experiment runs (set by finetuning runner)
+# Override paths for experiment runs (env var takes priority over pipeline_config)
 _news_dir = os.environ.get("PIPELINE_NEWS_DIR")
 PANEL_PATH = (Path(_news_dir) / "10_newspaper_year_panel.parquet" if _news_dir
-              else BASE_DIR / "data" / "processed" / "newspapers" / "10_newspaper_year_panel.parquet")
+              else cfg.NEWS_DIR / "10_newspaper_year_panel.parquet")
 GEO_PATH = BASE_DIR / "data" / "geo" / "newspaper_county_map.csv"
 CZ_PATH = BASE_DIR / "data" / "raw" / "econ" / "crosswalk" / "cw_cty_czone" / "cw_cty_czone.dta"
 
-OUT_DIR = Path(_news_dir) if _news_dir else BASE_DIR / "data" / "processed" / "newspapers"
+OUT_DIR = Path(_news_dir) if _news_dir else cfg.NEWS_DIR
 
 # ------------------------------------------------------------------
 # Name aliases: panel name -> geo map name

@@ -300,6 +300,23 @@ def build_filter_sets(voteview_path):
 
     blocked_bigrams = geo_bigrams_stemmed | legislator_bigrams_stemmed
 
+    # GST procedural bigrams (Roberts' Rules + Riddick's Senate Procedure)
+    gst_procedural = set()
+    if cfg.CONFIG.get("filter_gst_procedural", False):
+        gst_path = cfg.GST_PROCEDURAL_PATH
+        if gst_path.exists():
+            with open(gst_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if "|" in line and not line.startswith("phrase|"):
+                        phrase = line.split("|")[0].strip()
+                        if len(phrase.split()) == 2:
+                            gst_procedural.add(phrase)
+            blocked_bigrams = blocked_bigrams | gst_procedural
+            print(f"  GST procedural bigrams loaded: {len(gst_procedural):,}")
+        else:
+            print(f"  WARNING: GST procedural file not found: {gst_path}")
+
     print(f"  English + procedural stop words (stemmed): {len(english_stops_stemmed)}")
     print(f"  Geographic unigrams (stemmed): {len(geo_unigrams_stemmed)}")
     print(f"  Geographic bigrams (stemmed): {len(geo_bigrams_stemmed)}")
@@ -397,13 +414,33 @@ if __name__ == "__main__":
     print(f"  Frequency filter: {FREQ_FILTER}")
 
     # ------------------------------------------------------------------
-    # 1. Load data
+    # 1. Load data (labels first, then speeches filtered by congress)
     # ------------------------------------------------------------------
-    print("\nLoading speech text ...")
-    speeches = pd.read_parquet(SPEECHES_PATH, columns=["speech_id", "speech"])
-
-    print("Loading labels ...")
+    print("\nLoading labels ...")
     labels = pd.read_parquet(LABELS_PATH)
+    labels["speech_id"] = labels["speech_id"].astype(str)
+
+    # Pre-filter speeches by congress range to avoid loading all 17M rows
+    cong_lo, cong_hi = cfg.CONFIG["congress_range"]
+    congress_strings = [f"{c:03d}" for c in range(cong_lo, cong_hi + 1)]
+    print(f"  Labels loaded: {len(labels):,} rows, will filter speeches to congresses {cong_lo}-{cong_hi}")
+
+    print("\nLoading speech text (filtered by congress) ...")
+    import pyarrow.parquet as pq
+    import pyarrow.compute as pc
+    pf = pq.ParquetFile(SPEECHES_PATH)
+    speech_chunks = []
+    for rg_idx in range(pf.metadata.num_row_groups):
+        tbl = pf.read_row_group(rg_idx, columns=["speech_id", "speech", "congress"])
+        mask = pc.is_in(tbl.column("congress"), value_set=pc.cast(congress_strings, tbl.schema.field("congress").type))
+        tbl_filtered = tbl.filter(mask)
+        if len(tbl_filtered) > 0:
+            speech_chunks.append(tbl_filtered.select(["speech_id", "speech"]).to_pandas())
+        del tbl, mask, tbl_filtered
+    speeches = pd.concat(speech_chunks, ignore_index=True)
+    del speech_chunks
+    speeches["speech_id"] = speeches["speech_id"].astype(str)
+    print(f"  Loaded {len(speeches):,} speeches for congresses {cong_lo}-{cong_hi}")
 
     # ------------------------------------------------------------------
     # 2. Build filter sets
@@ -415,21 +452,25 @@ if __name__ == "__main__":
     # 3. Merge text with labels
     # ------------------------------------------------------------------
     print("\nMerging text with labels ...")
-    speeches["speech_id"] = speeches["speech_id"].astype(str)
-    labels["speech_id"] = labels["speech_id"].astype(str)
 
     merged = labels.merge(speeches, on="speech_id", how="inner")
     del speeches
     print(f"  Merged: {len(merged):,} speeches with text + labels")
 
-    # Restrict to configured congress range
-    cong_lo, cong_hi = cfg.CONFIG["congress_range"]
+    # Congress range already applied during load; verify
     merged = merged[merged["congress_int"].between(cong_lo, cong_hi)].reset_index(drop=True)
     print(f"  After congress filter ({cong_lo}-{cong_hi}): {len(merged):,} speeches")
 
     # Filter to R and D only (exclude independents)
     merged = merged[merged["party"].isin(["R", "D"])].reset_index(drop=True)
     print(f"  After R/D filter: {len(merged):,} speeches")
+
+    # Dev subsample (for quick iteration)
+    sample_frac = cfg.CONFIG.get("speech_sample_frac")
+    if sample_frac is not None and 0 < sample_frac < 1:
+        n_before = len(merged)
+        merged = merged.sample(frac=sample_frac, random_state=42).reset_index(drop=True)
+        print(f"  [DEV] Subsampled {sample_frac:.0%}: {n_before:,} -> {len(merged):,} speeches")
 
     # Min speech words filter
     min_words = cfg.CONFIG.get("min_speech_words")

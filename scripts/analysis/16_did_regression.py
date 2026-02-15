@@ -18,21 +18,24 @@ Outputs:
 """
 
 import os
+import sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
+import pipeline_config as cfg
+
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-# Override paths for experiment runs (set by finetuning runner)
+# Override paths for experiment runs (env var takes priority over pipeline_config)
 _panel_dir = os.environ.get("PIPELINE_PANEL_DIR")
 _tab_dir = os.environ.get("PIPELINE_TAB_DIR")
 
 PANEL_PATH = (Path(_panel_dir) / "14_regression_panel.parquet" if _panel_dir
-              else BASE_DIR / "data" / "processed" / "panel"
-              / "14_regression_panel.parquet")
-TAB_DIR = Path(_tab_dir) if _tab_dir else BASE_DIR / "output" / "tables"
+              else cfg.PANEL_DIR / "14_regression_panel.parquet")
+TAB_DIR = Path(_tab_dir) if _tab_dir else cfg.TAB_DIR
 
 NAFTA_YEAR = 1994
 END_YEAR = 2004  # Extended sample; China shock controlled in spec 3
@@ -134,15 +137,27 @@ def main():
           f"Pre-NAFTA: {(df['post']==0).sum():,} obs")
 
     outcomes = [
-        ("right_norm",               "Right Intensity"),
-        ("left_norm",                "Left Intensity"),
-        ("net_slant_norm",           "Net Slant"),
-        ("politicization_norm",      "Politicization"),
-        ("right_norm_econ",          "Right Intensity (Econ)"),
-        ("left_norm_econ",           "Left Intensity (Econ)"),
-        ("net_slant_norm_econ",      "Net Slant (Econ)"),
-        ("politicization_norm_econ", "Politicization (Econ)"),
-        ("econ_share",               "Econ Article Share"),
+        # Unconditional
+        ("net_slant",            "Net Slant (Raw)"),
+        ("net_slant_norm",       "Net Slant (Norm)"),
+        ("right_norm",           "R Component (Norm, Unconditional)"),
+        ("left_norm",            "L Component (Norm, Unconditional)"),
+        ("politicization",       "Politicization (Raw)"),
+        ("politicization_norm",  "Politicization (Norm)"),
+        # Extensive margins
+        ("ext_nonzero",          "Share Non-Zero"),
+        ("ext_R",                "Share R-Leaning"),
+        ("ext_D",                "Share D-Leaning"),
+        # Intensive margins (raw)
+        ("int_net_slant",        "Net Slant (Raw, Intensive)"),
+        ("int_R",                "R Intensity (Raw, Intensive)"),
+        ("int_D",                "D Intensity (Raw, Intensive)"),
+        # Intensive margins (normalized)
+        ("int_net_slant_norm",   "Net Slant (Norm, Intensive)"),
+        ("int_R_norm",           "R Intensity (Norm, Intensive)"),
+        ("int_D_norm",           "D Intensity (Norm, Intensive)"),
+        ("int_right_norm",       "R Component (Norm, Intensive)"),
+        ("int_left_norm",        "L Component (Norm, Intensive)"),
     ]
 
     all_results = []

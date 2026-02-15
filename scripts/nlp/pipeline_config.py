@@ -22,15 +22,15 @@ from pathlib import Path
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
 # ── Run name ───────────────────────────────────────────────────────
-RUN_NAME = "main"
+RUN_NAME = "exp_shvocab_cv"
 
 # ── Pipeline settings ──────────────────────────────────────────────
 CONFIG = {
     "run_name": RUN_NAME,
     "congress_range": [99, 108],        # inclusive: speeches from these congresses
     "window_size": 1,                   # 1-congress (Widmer-style) or 2/3 (rolling)
-    "ngram_range": (2, 2),              # (2,2)=bigrams only (Widmer), (1,2)=unigrams+bigrams
-    "bigrams_only": True,               # True=Widmer, False=unigrams+bigrams
+    "ngram_range": (1, 2),              # (2,2)=bigrams only (Widmer), (1,2)=unigrams+bigrams
+    "bigrams_only": False,              # True=Widmer, False=unigrams+bigrams
     "use_relative_freq": True,          # True=Widmer (CountVec+L1norm), False=TF-IDF
     "freq_filter_mode": "widmer",       # "widmer" = per-party 0.1%/0.01%, "min_df" = global min_df
     "tfidf_min_df": 0.001,             # only used when freq_filter_mode="min_df"
@@ -39,12 +39,17 @@ CONFIG = {
     "aggregate_to_legislator": False,   # False=individual speeches (Widmer), True=legislator-congress
     "newspaper_df_floor": None,         # None=no floor (Widmer), int=min newspaper DF
     "lasso_Cs": [-1, 4, 20],           # np.logspace(*Cs) args
-    "lasso_lambda_selection": "bic",    # "bic" (Widmer) or "cv"
+    "lasso_lambda_selection": "cv",     # "bic" (Widmer) or "cv"
     "lasso_cv_folds": 5,               # only used when lambda_selection="cv"
     "lasso_max_iter": 5000,
-    "shared_vocab_min_df": None,        # None=off, float=min newspaper DF (e.g. 0.0001=0.01%)
+    "shared_vocab_min_df": 0.00001,     # None=off, float=min newspaper DF (0.00001=0.001%)
+    "filter_gst_procedural": True,     # True=remove GST procedural bigrams from vocabulary
     "sign_consistency_filter": False,   # True=zero out phrases that flip R/D across congresses
     "norm_method": "raw_gap",           # "raw_gap" | "prob_gap" | "prob_direct" (P(R) as score)
+    "speech_sample_frac": None,         # None=full sample, float (0,1)=random subsample for dev
+    "newspaper_sample_frac": None,      # None=full sample, float (0,1)=random subsample for dev
+    "input_speech_dir": "data/processed/runs/exp_unigram_gst/speeches",
+    "input_news_dir": "data/processed/runs/exp_unigram_gst/newspapers",
 }
 
 # ── Override from environment (for experiments) ────────────────────
@@ -59,6 +64,15 @@ if _override_path:
     for k, v in _overrides.items():
         print(f"    {k} = {v}")
 
+# ── National newspapers to exclude from analysis ──────────────────
+# These are national papers whose content does not reflect local coverage.
+# They get mapped to their HQ location in step 11, which is misleading
+# for a local trade-shock identification strategy.
+NATIONAL_PAPERS = [
+    "USA TODAY",
+    "CHRISTIAN SCIENCE MONITOR",
+]
+
 # ── Shared input paths (fixed, independent of run) ────────────────
 SPEECHES_PATH       = BASE_DIR / "data" / "intermediate" / "speeches" / "01_speeches_merged.parquet"
 LABELS_PATH         = BASE_DIR / "data" / "intermediate" / "speeches" / "04_speeches_with_partisan_core.parquet"
@@ -67,6 +81,7 @@ RAW_NEWSPAPERS      = BASE_DIR / "data" / "intermediate" / "newspapers"
 NEWSPAPER_LABELS    = BASE_DIR / "data" / "processed" / "newspapers"   # step 04 labels
 NEWSPAPER_TFIDF_DIR = BASE_DIR / "data" / "processed" / "newspapers"   # step 07 TF-IDF outputs
 SPEECH_TFIDF_DIR    = BASE_DIR / "data" / "processed" / "speeches"     # step 05 TF-IDF outputs
+GST_PROCEDURAL_PATH = BASE_DIR / "data" / "raw" / "speeches" / "vocabulary" / "procedural.txt"
 
 # Econ inputs (steps 12-13, shared across runs)
 GEO_PATH         = BASE_DIR / "data" / "geo" / "newspaper_county_map.csv"

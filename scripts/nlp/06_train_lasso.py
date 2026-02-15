@@ -240,7 +240,7 @@ for wi, window_congs in enumerate(WINDOWS, 1):
             penalty="l1", solver="liblinear",
             Cs=Cs, cv=CV_FOLDS,
             max_iter=MAX_ITER, scoring="accuracy",
-            random_state=42, n_jobs=-1,
+            random_state=42, n_jobs=int(os.environ.get("LASSO_N_JOBS", -1)),
         )
         model.fit(X, y)
         best_C = model.C_[0]
@@ -263,12 +263,26 @@ for wi, window_congs in enumerate(WINDOWS, 1):
     print(f"  Non-zero coefs: {n_nonzero:,} (+{n_positive:,} / -{n_negative:,})")
 
     # ---- Top partisan phrases (diagnostic) ----
-    top_k = min(30, n_nonzero)
-    if top_k > 0:
-        coef_abs = np.abs(coef)
-        top_idx = np.argsort(coef_abs)[::-1][:top_k]
+    # Save top 15 per direction (R/D separately) so reports always have 10+
+    top_per_dir = 15
+    if n_nonzero > 0:
+        pos_idx = np.where(coef > 0)[0]
+        neg_idx = np.where(coef < 0)[0]
 
-        print(f"\n  Top {top_k} partisan phrases:")
+        # Top Republican (positive coefs, descending)
+        if len(pos_idx) > 0:
+            pos_sorted = pos_idx[np.argsort(coef[pos_idx])[::-1][:top_per_dir]]
+        else:
+            pos_sorted = np.array([], dtype=int)
+        # Top Democratic (negative coefs, ascending = largest absolute)
+        if len(neg_idx) > 0:
+            neg_sorted = neg_idx[np.argsort(coef[neg_idx])[:top_per_dir]]
+        else:
+            neg_sorted = np.array([], dtype=int)
+
+        top_idx = np.concatenate([pos_sorted, neg_sorted])
+
+        print(f"\n  Top {len(pos_sorted)}R + {len(neg_sorted)}D partisan phrases:")
         for rank, fi in enumerate(top_idx, 1):
             direction = "R" if coef[fi] > 0 else "D"
             phrase = feature_names[fi] if feature_names[fi] is not None else f"feature_{fi}"
