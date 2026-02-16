@@ -61,7 +61,7 @@ def load_config(exp_name):
         return json.load(f)
 
 
-def load_tfidf_data(tfidf_name):
+def load_feature_data(tfidf_name):
     """Load step 05 output: feature matrix, metadata, vectorizer."""
     speech_dir = RUNS_DIR / tfidf_name / "speeches"
     X = sp.load_npz(speech_dir / "05_feature_matrix.npz")
@@ -124,13 +124,13 @@ def cross_level_validation():
     print("PART 2: CROSS-LEVEL VALIDATION")
     print("=" * 80)
 
-    # Load both TF-IDF datasets
+    # Load both feature datasets
     print("\nLoading speech-level data...")
-    X_sp, meta_sp, vec_sp, idx_sp = load_tfidf_data("exp2_tfidf_speech")
+    X_sp, meta_sp, vec_sp, idx_sp = load_feature_data("exp2_tfidf_speech")
     print(f"  Shape: {X_sp.shape}")
 
     print("Loading legislator-level data...")
-    X_leg, meta_leg, vec_leg, idx_leg = load_tfidf_data("exp2_tfidf_leg")
+    X_leg, meta_leg, vec_leg, idx_leg = load_feature_data("exp2_tfidf_leg")
     print(f"  Shape: {X_leg.shape}")
 
     # Get party labels
@@ -364,14 +364,14 @@ def newspaper_domain_transfer():
     # Load newspaper text from a sample congress
     test_cong = 106
     meta_path = BASE_DIR / "data" / "processed" / "newspapers" / f"07_newspaper_meta_cong_{test_cong}.parquet"
-    tfidf_path = BASE_DIR / "data" / "processed" / "newspapers" / f"07_newspaper_tfidf_cong_{test_cong}.npz"
+    features_path = BASE_DIR / "data" / "processed" / "newspapers" / f"07_newspaper_features_cong_{test_cong}.npz"
 
     if not meta_path.exists():
         print("  Main pipeline newspaper data not found. Skipping.")
         return pd.DataFrame()
 
     meta = pd.read_parquet(meta_path)
-    # Main pipeline TF-IDF was built with main vectorizer, not exp2 vectorizers
+    # Main pipeline features were built with main vectorizer, not exp2 vectorizers
     # So we can only compare exp2 models if they share the same feature space
 
     # Alternative: load raw newspaper articles and vectorize with each experiment's vectorizer

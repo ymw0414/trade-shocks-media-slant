@@ -1,21 +1,21 @@
 """
-05c_rebuild_speech_tfidf.py
+05c_rebuild_speech_features.py
 
-Rebuild the speech TF-IDF matrix using the SAVED vectorizer from step 05.
+Rebuild the speech feature matrix using the SAVED vectorizer from step 05.
 This fixes the corruption from 05b (which stacked matrices from different
 vocabulary mappings).
 
 All congresses are transformed with the SAME vectorizer, ensuring
-consistent column→feature mapping across all rows.
+consistent column-to-feature mapping across all rows.
 
 Inputs:
   - data/intermediate/speeches/01_speeches_merged.parquet
   - data/intermediate/speeches/04_speeches_with_partisan_core.parquet
-  - data/processed/speeches/05_tfidf_vectorizer.joblib
+  - data/processed/speeches/05_feature_vectorizer.joblib
 
 Outputs (overwrites):
-  - data/processed/speeches/05_tfidf_matrix.npz
-  - data/processed/speeches/05_tfidf_meta.parquet
+  - data/processed/speeches/05_feature_matrix.npz
+  - data/processed/speeches/05_feature_meta.parquet
 """
 
 import os
@@ -35,9 +35,9 @@ PROC_DIR = BASE_DIR / "data" / "processed" / "speeches"
 
 SPEECHES_PATH = INTER_DIR / "01_speeches_merged.parquet"
 LABELS_PATH = INTER_DIR / "04_speeches_with_partisan_core.parquet"
-VEC_PATH = PROC_DIR / "05_tfidf_vectorizer.joblib"
-TFIDF_PATH = PROC_DIR / "05_tfidf_matrix.npz"
-META_PATH = PROC_DIR / "05_tfidf_meta.parquet"
+VEC_PATH = PROC_DIR / "05_feature_vectorizer.joblib"
+MATRIX_PATH = PROC_DIR / "05_feature_matrix.npz"
+META_PATH = PROC_DIR / "05_feature_meta.parquet"
 
 MIN_SPEECH_WORDS = 100
 CONGRESS_MIN = 98  # Include congress 98 for 3-window robustness
@@ -108,7 +108,7 @@ print(f"  Vocabulary size: {len(vectorizer.vocabulary_):,}")
 
 print("Transforming ...")
 X = vectorizer.transform(agg["text"])
-print(f"  TF-IDF shape: {X.shape}")
+print(f"  Feature matrix shape: {X.shape}")
 
 # ------------------------------------------------------------------
 # 5. Save
@@ -116,17 +116,17 @@ print(f"  TF-IDF shape: {X.shape}")
 meta = agg.drop(columns=["text"])
 meta = meta.sort_values(["congress_int", "icpsr"]).reset_index(drop=True)
 
-# Sort TF-IDF rows to match metadata order
+# Sort feature matrix rows to match metadata order
 sort_idx = agg.sort_values(["congress_int", "icpsr"]).index.values
 X = X[sort_idx]
 
 print(f"\n  Final: {X.shape[0]} rows, {len(meta)} meta rows")
 assert X.shape[0] == len(meta)
 
-sp.save_npz(TFIDF_PATH, X)
+sp.save_npz(MATRIX_PATH, X)
 meta.to_parquet(META_PATH)
 
-print(f"\n  Saved TF-IDF -> {TFIDF_PATH}")
+print(f"\n  Saved feature matrix -> {MATRIX_PATH}")
 print(f"  Saved meta -> {META_PATH}")
 
 # Verify

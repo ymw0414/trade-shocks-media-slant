@@ -32,7 +32,14 @@ import sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
@@ -259,14 +266,14 @@ def plot_comparison(coefs_econ, coefs_nonecon, depvar_label, out_path,
     ax.errorbar(yrs - offset, coefs_econ["coef"],
                 yerr=[coefs_econ["coef"] - coefs_econ["ci_lo"],
                       coefs_econ["ci_hi"] - coefs_econ["coef"]],
-                fmt="o", color="#c44e52", markersize=5, capsize=2.5,
+                fmt="o", color="#bf6b63", markersize=5, capsize=2.5,
                 linewidth=1.2, label=label_e)
 
     # Non-economy articles
     ax.errorbar(yrs + offset, coefs_nonecon["coef"],
                 yerr=[coefs_nonecon["coef"] - coefs_nonecon["ci_lo"],
                       coefs_nonecon["ci_hi"] - coefs_nonecon["coef"]],
-                fmt="s", color="#4c72b0", markersize=5, capsize=2.5,
+                fmt="s", color="#5d8aa8", markersize=5, capsize=2.5,
                 linewidth=1.2, label=label_n)
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
@@ -393,12 +400,12 @@ def main():
         ax.errorbar(yrs - offset, coefs_e["coef"],
                     yerr=[coefs_e["coef"] - coefs_e["ci_lo"],
                           coefs_e["ci_hi"] - coefs_e["coef"]],
-                    fmt="o", color="#c44e52", markersize=5, capsize=2.5,
+                    fmt="o", color="#bf6b63", markersize=5, capsize=2.5,
                     linewidth=1.2, label="Economy articles")
         ax.errorbar(yrs + offset, coefs_n["coef"],
                     yerr=[coefs_n["coef"] - coefs_n["ci_lo"],
                           coefs_n["ci_hi"] - coefs_n["coef"]],
-                    fmt="s", color="#4c72b0", markersize=5, capsize=2.5,
+                    fmt="s", color="#5d8aa8", markersize=5, capsize=2.5,
                     linewidth=1.2, label="Non-economy articles")
 
         ax.axhline(0, color="black", linewidth=0.5)

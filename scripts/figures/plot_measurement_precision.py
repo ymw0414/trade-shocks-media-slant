@@ -27,7 +27,14 @@ import numpy as np
 import pandas as pd
 import joblib
 import scipy.sparse as sp
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 # Pipeline config
@@ -60,8 +67,8 @@ def compute_legislator_accuracy():
 
     # Load speech data
     print("\nLoading speech feature matrix ...")
-    X_all = sp.load_npz(cfg.INPUT_SPEECH_DIR / "05_tfidf_matrix.npz")
-    meta = pd.read_parquet(cfg.INPUT_SPEECH_DIR / "05_tfidf_meta.parquet")
+    X_all = sp.load_npz(cfg.INPUT_SPEECH_DIR / "05_feature_matrix.npz")
+    meta = pd.read_parquet(cfg.INPUT_SPEECH_DIR / "05_feature_meta.parquet")
 
     # Apply shared vocab mask
     mask_path = cfg.MODEL_DIR / "06_shared_vocab_mask.npy"
@@ -191,28 +198,28 @@ def plot_accuracy_convergence(results_df, summary_df):
 
     fig, ax = plt.subplots(figsize=(7, 4.5))
 
-    # Color palette for congresses
     congresses = sorted(results_df["congress"].unique())
-    cmap = plt.cm.viridis
-    colors = {c: cmap(i / max(len(congresses) - 1, 1))
-              for i, c in enumerate(congresses)}
 
-    # Plot convergence curves
+    # Individual congress curves: thin gray traces
     for cong in congresses:
         sub = results_df[results_df["congress"] == cong].sort_values("k")
         if len(sub) < 2:
             continue
-        ax.plot(sub["k"], sub["accuracy_mean"], "-o", color=colors[cong],
-                markersize=4, linewidth=1.2, label=f"Cong. {cong}", alpha=0.8)
+        ax.plot(sub["k"], sub["accuracy_mean"], "-", color="#b0b0b0",
+                markersize=0, linewidth=0.8, alpha=0.6, zorder=2)
         ax.fill_between(sub["k"],
                         sub["accuracy_mean"] - 1.96 * sub["accuracy_se"],
                         sub["accuracy_mean"] + 1.96 * sub["accuracy_se"],
-                        color=colors[cong], alpha=0.08)
+                        color="#b0b0b0", alpha=0.05)
+    # Ghost label for legend
+    ax.plot([], [], "-", color="#b0b0b0", linewidth=0.8, alpha=0.6,
+            label=f"Individual congresses ({congresses[0]}\u2013{congresses[-1]})")
 
-    # Median across congresses
+    # Median across congresses: bold red line
+    C_R = "#bf6b63"
     median_curve = results_df.groupby("k")["accuracy_mean"].median()
-    ax.plot(median_curve.index, median_curve.values, "k-", linewidth=2.5,
-            alpha=0.7, label="Median", zorder=10)
+    ax.plot(median_curve.index, median_curve.values, "-o", color=C_R,
+            linewidth=2.2, markersize=4, label="Median", zorder=10)
 
     ax.set_xlabel("Number of speeches per legislator", fontsize=11)
     ax.set_ylabel("Classification accuracy", fontsize=11)
@@ -221,8 +228,8 @@ def plot_accuracy_convergence(results_df, summary_df):
     ax.get_xaxis().set_major_formatter(plt.ScalarFormatter())
     ax.set_ylim(0.55, 1.02)
     ax.axhline(0.5, color="gray", linestyle=":", linewidth=0.8, alpha=0.5)
-    ax.legend(fontsize=7.5, ncol=2, loc="lower right",
-              framealpha=0.9, edgecolor="gray")
+    ax.legend(fontsize=8.5, loc="lower right",
+              framealpha=0.9, edgecolor="#cccccc")
     ax.grid(axis="y", alpha=0.2)
 
     fig.tight_layout()
@@ -398,7 +405,7 @@ def plot_slant_convergence(paths_df, ny_df=None):
     fig, ax = plt.subplots(figsize=(7, 4.5))
 
     papers = paths_df["paper"].unique()
-    palette = ["#3d65a5", "#333333", "#e6550d", "#b83a3e"]
+    palette = ["#2d2d2d", "#7a7a7a", "#b0b0b0", "#bf6b63"]
     colors = dict(zip(papers, palette[:len(papers)]))
 
     for paper in papers:

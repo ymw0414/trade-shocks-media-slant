@@ -18,6 +18,12 @@ import pandas as pd
 import pyfixest as pf
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -108,7 +114,7 @@ def run_one_es(df, depvar, years):
     return pd.DataFrame(rows)
 
 
-def plot_es(coefs, title, out_path, color="#2171b5"):
+def plot_es(coefs, title, out_path, color="#2d2d2d"):
     """Single event-study plot."""
     fig, ax = plt.subplots(figsize=(10, 5))
     yrs = coefs["year"].values
@@ -140,7 +146,7 @@ def plot_es(coefs, title, out_path, color="#2171b5"):
 def plot_4panel(all_coefs, run_name, desc):
     """Generate 2x2 panel figure with all 4 event studies."""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    colors = ["#e41a1c", "#377eb8", "#e41a1c", "#377eb8"]
+    colors = ["#2d2d2d", "#7a7a7a", "#2d2d2d", "#7a7a7a"]
     titles = ["Net Slant (Raw)", "Net Slant (Normalized)",
               "Right Intensity (Norm)", "Left Intensity (Norm)"]
 
@@ -224,7 +230,7 @@ if __name__ == "__main__":
             # Individual plot
             plot_es(coefs, f"{name}: {label}",
                     FIG_DIR / f"{name}_{depvar}.png",
-                    color="#e41a1c" if "right" in depvar or "raw" in label.lower() else "#2171b5")
+                    color="#bf6b63" if "right" in depvar or "raw" in label.lower() else "#5d8aa8")
 
         # 4-panel combined figure
         if len(all_coefs) == 4:

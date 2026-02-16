@@ -113,6 +113,14 @@ def main():
         print(f"  Dropping {n_national} rows from {len(papers_dropped)} national papers: {papers_dropped}")
         panel = panel[~panel["paper"].isin(national)].copy()
 
+    # Drop non-daily newspapers (weekly, Sunday-only, archive artifacts)
+    non_daily = cfg.NON_DAILY_PAPERS
+    n_non_daily = panel["paper"].isin(non_daily).sum()
+    if n_non_daily > 0:
+        papers_dropped = panel.loc[panel["paper"].isin(non_daily), "paper"].unique().tolist()
+        print(f"  Dropping {n_non_daily} rows from {len(papers_dropped)} non-daily papers: {papers_dropped}")
+        panel = panel[~panel["paper"].isin(non_daily)].copy()
+
     # Drop rows without CZ assignment
     n_no_cz = panel["cz"].isna().sum()
     if n_no_cz > 0:

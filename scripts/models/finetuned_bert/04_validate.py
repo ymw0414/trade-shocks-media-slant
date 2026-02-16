@@ -11,6 +11,13 @@ Diagnostics:
 import sys
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import stats

@@ -16,7 +16,14 @@ import os
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
@@ -127,14 +134,14 @@ def plot_comparison(coefs_2000, coefs_2004, depvar_label, out_path):
     ax.errorbar(yrs_2000 - offset, coefs_2000["coef"],
                 yerr=[coefs_2000["coef"] - coefs_2000["ci_lo"],
                       coefs_2000["ci_hi"] - coefs_2000["coef"]],
-                fmt="o", color="#cb181d", markersize=5, capsize=3,
+                fmt="o", color="#2d2d2d", markersize=5, capsize=3,
                 linewidth=1.2, label="Baseline (1987-2000)")
 
     yrs_2004 = coefs_2004["year"].values
     ax.errorbar(yrs_2004 + offset, coefs_2004["coef"],
                 yerr=[coefs_2004["coef"] - coefs_2004["ci_lo"],
                       coefs_2004["ci_hi"] - coefs_2004["coef"]],
-                fmt="s", color="#2171b5", markersize=5, capsize=3,
+                fmt="s", color="#7a7a7a", markersize=5, capsize=3,
                 linewidth=1.2, label="Extended (1987-2004)")
 
     ax.axhline(0, color="black", linewidth=0.5)

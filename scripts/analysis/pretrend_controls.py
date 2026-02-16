@@ -14,7 +14,14 @@ import os
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
@@ -166,7 +173,7 @@ def main():
         fig, ax = plt.subplots(figsize=(12, 6))
         yrs = all_coefs["1. Baseline"]["year"].values
 
-        colors = ["#cb181d", "#2171b5", "#238b45", "#6a3d9a", "#ff7f00", "#000000"]
+        colors = ["#2d2d2d", "#7a7a7a", "#b0b0b0", "#bf6b63", "#5d8aa8", "#2d2d2d"]
         markers = ["o", "s", "^", "D", "v", "P"]
         offsets = [-0.25, -0.15, -0.05, 0.05, 0.15, 0.25]
 

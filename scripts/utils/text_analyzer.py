@@ -1,8 +1,8 @@
 """
 text_analyzer.py
 
-Picklable TF-IDF analyzer for congressional speech / newspaper text.
-Used by 05_build_tfidf.py (fitting) and 07_prepare_newspapers.py (transform).
+Picklable text analyzer for congressional speech / newspaper text.
+Used by 05_build_features.py (fitting) and 07_prepare_newspapers.py (transform).
 
 This module exists so that joblib can serialize and deserialize the
 analyzer across scripts.  Closures cannot be pickled; a callable class can.
@@ -12,7 +12,7 @@ import re
 from nltk.stem.porter import PorterStemmer
 
 
-# Parliamentary phrases to strip (must match 05_build_tfidf.py)
+# Parliamentary phrases to strip (must match 05_build_features.py)
 PARLIAMENTARY_PHRASES = [
     # --- Yielding time ---
     "i yield back the balance of my time",
@@ -154,7 +154,7 @@ PARLIAMENTARY_PHRASES = [
 
 class TextAnalyzer:
     """
-    Picklable TF-IDF analyzer with Porter Stemmer + filtering.
+    Picklable text analyzer with Porter Stemmer + filtering.
 
     Pipeline per document:
       1. Lowercase

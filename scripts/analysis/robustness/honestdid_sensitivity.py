@@ -19,7 +19,14 @@ import os, sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from scipy.optimize import linprog
 from pathlib import Path
 
@@ -527,9 +534,9 @@ def main():
         ci_lo = feas["robust_ci_lo"].values
         ci_hi = feas["robust_ci_hi"].values
 
-        ax.fill_between(mbar, ci_lo, ci_hi, alpha=0.25, color="#4c72b0")
-        ax.plot(mbar, ci_lo, color="#4c72b0", linewidth=0.8)
-        ax.plot(mbar, ci_hi, color="#4c72b0", linewidth=0.8)
+        ax.fill_between(mbar, ci_lo, ci_hi, alpha=0.25, color="#7a7a7a")
+        ax.plot(mbar, ci_lo, color="#7a7a7a", linewidth=0.8)
+        ax.plot(mbar, ci_hi, color="#7a7a7a", linewidth=0.8)
         ax.axhline(sd["theta"], color="#333", linewidth=0.6, linestyle="--", alpha=0.4)
         ax.axhline(0, color="black", linewidth=0.5)
 
@@ -540,11 +547,11 @@ def main():
         # Breakdown
         bd = sd["breakdown"]
         if np.isfinite(bd):
-            ax.axvline(bd, color="#c44e52", linewidth=1.2, linestyle="--", alpha=0.8)
+            ax.axvline(bd, color="#bf6b63", linewidth=1.2, linestyle="--", alpha=0.8)
             # Position label
             ypos = ax.get_ylim()[0] + 0.85 * (ax.get_ylim()[1] - ax.get_ylim()[0])
             ax.text(bd * 1.03, ypos, f"$\\bar{{M}}^*$={bd:.3f}",
-                    fontsize=6.5, color="#c44e52", ha="left", va="top")
+                    fontsize=6.5, color="#bf6b63", ha="left", va="top")
 
         ax.set_title(label, fontsize=9)
         if j == 0:
@@ -564,18 +571,18 @@ def main():
         ci_lo = sdf["robust_ci_lo"].values
         ci_hi = sdf["robust_ci_hi"].values
 
-        ax.fill_between(mbar, ci_lo, ci_hi, alpha=0.25, color="#dd8452")
-        ax.plot(mbar, ci_lo, color="#dd8452", linewidth=0.8)
-        ax.plot(mbar, ci_hi, color="#dd8452", linewidth=0.8)
+        ax.fill_between(mbar, ci_lo, ci_hi, alpha=0.25, color="#b0b0b0")
+        ax.plot(mbar, ci_lo, color="#b0b0b0", linewidth=0.8)
+        ax.plot(mbar, ci_hi, color="#b0b0b0", linewidth=0.8)
         ax.axhline(rm["theta"], color="#333", linewidth=0.6, linestyle="--", alpha=0.4)
         ax.axhline(0, color="black", linewidth=0.5)
 
         bd = rm["breakdown"]
         if np.isfinite(bd):
-            ax.axvline(bd, color="#c44e52", linewidth=1.2, linestyle="--", alpha=0.8)
+            ax.axvline(bd, color="#bf6b63", linewidth=1.2, linestyle="--", alpha=0.8)
             ypos = ax.get_ylim()[0] + 0.85 * (ax.get_ylim()[1] - ax.get_ylim()[0])
             ax.text(bd * 1.03, ypos, f"$\\bar{{M}}^*$={bd:.1f}",
-                    fontsize=6.5, color="#c44e52", ha="left", va="top")
+                    fontsize=6.5, color="#bf6b63", ha="left", va="top")
 
         ax.set_title(label, fontsize=9)
         if j == 0:
@@ -603,9 +610,9 @@ def main():
     if len(feas) > 0:
         mbar = feas["Mbar"].values
         ax.fill_between(mbar, feas["robust_ci_lo"].values, feas["robust_ci_hi"].values,
-                        alpha=0.3, color="#4c72b0", label="95% Robust CI")
-        ax.plot(mbar, feas["robust_ci_lo"].values, color="#4c72b0", linewidth=1.0)
-        ax.plot(mbar, feas["robust_ci_hi"].values, color="#4c72b0", linewidth=1.0)
+                        alpha=0.3, color="#7a7a7a", label="95% Robust CI")
+        ax.plot(mbar, feas["robust_ci_lo"].values, color="#7a7a7a", linewidth=1.0)
+        ax.plot(mbar, feas["robust_ci_hi"].values, color="#7a7a7a", linewidth=1.0)
     ax.axhline(sd["theta"], color="#333", linewidth=0.8, linestyle="--", alpha=0.5,
                label=f"Point est. = {sd['theta']:.3f}")
     ax.axhline(0, color="black", linewidth=0.5)
@@ -613,7 +620,7 @@ def main():
                label=f"$\\bar{{M}}_{{min}}$ = {sd['mbar_min']:.4f}")
     bd = sd["breakdown"]
     if np.isfinite(bd):
-        ax.axvline(bd, color="#c44e52", linewidth=1.5, linestyle="--",
+        ax.axvline(bd, color="#bf6b63", linewidth=1.5, linestyle="--",
                    label=f"Breakdown $\\bar{{M}}^*$ = {bd:.4f}")
     ax.set_xlabel("$\\bar{M}$ (smoothness bound on $\\Delta^2\\delta$)", fontsize=10)
     ax.set_ylabel("Avg. post-treatment effect", fontsize=10)
@@ -628,15 +635,15 @@ def main():
     sdf = rm["sens_df"]
     mbar = sdf["Mbar"].values
     ax.fill_between(mbar, sdf["robust_ci_lo"].values, sdf["robust_ci_hi"].values,
-                    alpha=0.3, color="#dd8452", label="95% Robust CI")
-    ax.plot(mbar, sdf["robust_ci_lo"].values, color="#dd8452", linewidth=1.0)
-    ax.plot(mbar, sdf["robust_ci_hi"].values, color="#dd8452", linewidth=1.0)
+                    alpha=0.3, color="#b0b0b0", label="95% Robust CI")
+    ax.plot(mbar, sdf["robust_ci_lo"].values, color="#b0b0b0", linewidth=1.0)
+    ax.plot(mbar, sdf["robust_ci_hi"].values, color="#b0b0b0", linewidth=1.0)
     ax.axhline(rm["theta"], color="#333", linewidth=0.8, linestyle="--", alpha=0.5,
                label=f"Point est. = {rm['theta']:.3f}")
     ax.axhline(0, color="black", linewidth=0.5)
     bd = rm["breakdown"]
     if np.isfinite(bd):
-        ax.axvline(bd, color="#c44e52", linewidth=1.5, linestyle="--",
+        ax.axvline(bd, color="#bf6b63", linewidth=1.5, linestyle="--",
                    label=f"Breakdown $\\bar{{M}}^*$ = {bd:.1f}")
     ax.set_xlabel("$\\bar{M}$ (ratio to max pre-trend change)", fontsize=10)
     ax.set_ylabel("Avg. post-treatment effect", fontsize=10)

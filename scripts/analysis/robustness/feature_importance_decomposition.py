@@ -20,7 +20,14 @@ import os, sys
 import joblib
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from collections import defaultdict
 from pathlib import Path
 
@@ -299,7 +306,7 @@ def main():
 
     # Panel a: Average weight by topic
     ax = axes[0]
-    colors = ["#c44e52" if t == "Trade" else "#4c72b0" for t in plot_df["topic"]]
+    colors = ["#bf6b63" if t == "Trade" else "#2d2d2d" for t in plot_df["topic"]]
     bars = ax.barh(range(len(plot_df)), plot_df["pct_total_weight"].values,
                    color=colors, edgecolor="white", linewidth=0.5)
     ax.set_yticks(range(len(plot_df)))
@@ -332,7 +339,7 @@ def main():
     # Use distinct colors
     cmap = plt.cm.Set2
     topic_colors = {t: cmap(i / len(col_order)) for i, t in enumerate(col_order)}
-    topic_colors["Trade"] = "#c44e52"
+    topic_colors["Trade"] = "#bf6b63"
 
     bottom = np.zeros(len(pivot))
     for col in col_order:

@@ -194,7 +194,7 @@ def main():
             leader_cfg = EXPERIMENTS[leader_num]
             override_path = exp_dir / f"{leader_cfg['run_name']}.json"
             make_override(leader_cfg, override_path)
-            ok = run_step("nlp/05_build_tfidf.py", override_path,
+            ok = run_step("nlp/05_build_features.py", override_path,
                           label=f"Step 05 [{leader_cfg['label']}]")
             if not ok:
                 print(f"ABORT: Step 05 failed for {leader_cfg['run_name']}")

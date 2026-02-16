@@ -18,7 +18,14 @@ Outputs:
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from scipy import stats
 from pathlib import Path
 
@@ -96,21 +103,13 @@ def main():
     print(f"  Odd vs Even shareR: r = {r_split_shareR:.3f} (p = {p_split_shareR:.4f})")
 
     # --- Figure: 2-panel ---
-    from matplotlib.colors import TwoSlopeNorm
-
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
-
-    # Diverging colormap: blue (D-leaning) → red (R-leaning)
-    cmap_div = plt.cm.RdBu_r
-    midpoint = 0.5
 
     # Panel (a): Lag-1 autocorrelation scatter — share R
     ax = axes[0]
     x_a = auto["shareR_lag1"].values
     y_a = auto["ext_R"].values
-    c_a = (x_a + y_a) / 2
-    norm_a = TwoSlopeNorm(vmin=c_a.min(), vcenter=midpoint, vmax=c_a.max())
-    ax.scatter(x_a, y_a, s=18, c=c_a, cmap=cmap_div, norm=norm_a, alpha=0.5,
+    ax.scatter(x_a, y_a, s=18, color="#888888", alpha=0.45,
                edgecolors="white", linewidth=0.3, zorder=3)
 
     slope_a, intercept_a, _, _, _ = stats.linregress(x_a, y_a)
@@ -141,9 +140,7 @@ def main():
     ax = axes[1]
     x_b = split["shareR_odd"].values
     y_b = split["shareR_even"].values
-    c_b = (x_b + y_b) / 2
-    norm_b = TwoSlopeNorm(vmin=c_b.min(), vcenter=midpoint, vmax=c_b.max())
-    ax.scatter(x_b, y_b, s=40, c=c_b, cmap=cmap_div, norm=norm_b, alpha=0.7,
+    ax.scatter(x_b, y_b, s=40, color="#888888", alpha=0.6,
                edgecolors="white", linewidth=0.4, zorder=3)
 
     slope_b, intercept_b, _, _, _ = stats.linregress(x_b, y_b)

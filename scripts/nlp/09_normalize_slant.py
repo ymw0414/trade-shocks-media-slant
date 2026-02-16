@@ -24,8 +24,8 @@ Rolling-window mapping:
 
 Inputs:
   - models/06_lasso_window_{cong}.joblib
-  - speeches/05_tfidf_matrix.npz
-  - speeches/05_tfidf_meta.parquet
+  - speeches/05_feature_matrix.npz
+  - speeches/05_feature_meta.parquet
   - newspapers/08_article_slant_cong_{cong}.parquet
 
 Outputs:
@@ -49,8 +49,8 @@ import pipeline_config as cfg
 
 MODEL_DIR         = cfg.MODEL_DIR
 NEWSPAPER_DIR     = cfg.NEWS_DIR
-SPEECH_MATRIX_PATH = cfg.INPUT_SPEECH_DIR / "05_tfidf_matrix.npz"
-SPEECH_META_PATH  = cfg.INPUT_SPEECH_DIR / "05_tfidf_meta.parquet"
+SPEECH_MATRIX_PATH = cfg.INPUT_SPEECH_DIR / "05_feature_matrix.npz"
+SPEECH_META_PATH  = cfg.INPUT_SPEECH_DIR / "05_feature_meta.parquet"
 OUT_DIR           = cfg.NEWS_DIR
 
 

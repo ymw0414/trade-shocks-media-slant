@@ -7,8 +7,8 @@ newspaper transform (step 07) across speech-level and legislator-level
 experiments.
 
 Outputs:
-  - 05_tfidf_matrix.npz  (legislator-congress level, L1 normalized)
-  - 05_tfidf_meta.parquet (legislator-congress metadata)
+  - 05_feature_matrix.npz  (legislator-congress level, L1 normalized)
+  - 05_feature_meta.parquet (legislator-congress metadata)
   - Copies the vectorizer from the source run
 
 Usage:
@@ -33,16 +33,16 @@ import pipeline_config as cfg
 
 # Source: speech-level DTM
 SRC_DIR = cfg.INPUT_SPEECH_DIR
-SRC_MATRIX = SRC_DIR / "05_tfidf_matrix.npz"
-SRC_META = SRC_DIR / "05_tfidf_meta.parquet"
-SRC_VECTORIZER = SRC_DIR / "05_tfidf_vectorizer.joblib"
+SRC_MATRIX = SRC_DIR / "05_feature_matrix.npz"
+SRC_META = SRC_DIR / "05_feature_meta.parquet"
+SRC_VECTORIZER = SRC_DIR / "05_feature_vectorizer.joblib"
 SRC_VOCAB_IDX = SRC_DIR / "05_vocab_filter_idx.npy"
 
 # Destination: legislator-level DTM
 DST_DIR = cfg.SPEECH_DIR
-DST_MATRIX = DST_DIR / "05_tfidf_matrix.npz"
-DST_META = DST_DIR / "05_tfidf_meta.parquet"
-DST_VECTORIZER = DST_DIR / "05_tfidf_vectorizer.joblib"
+DST_MATRIX = DST_DIR / "05_feature_matrix.npz"
+DST_META = DST_DIR / "05_feature_meta.parquet"
+DST_VECTORIZER = DST_DIR / "05_feature_vectorizer.joblib"
 DST_VOCAB_IDX = DST_DIR / "05_vocab_filter_idx.npy"
 
 cfg.save_config()

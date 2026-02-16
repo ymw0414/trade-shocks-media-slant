@@ -14,11 +14,18 @@ Outputs:
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
-PANEL_PATH = BASE_DIR / "data" / "processed" / "panel" / "14_regression_panel.parquet"
+PANEL_PATH = BASE_DIR / "data" / "processed" / "runs" / "exp_shvocab_cv" / "panel" / "14_regression_panel.parquet"
 FIG_DIR = BASE_DIR / "output" / "figures"
 
 NAFTA_YEAR = 1993  # last pre-NAFTA year
@@ -39,15 +46,15 @@ def main():
     panels = [
         ("net_slant_norm",           r"Net Slant ($\tilde{S}$)"),
         ("politicization_norm",      r"Politicization ($\tilde{P}$)"),
-        ("net_slant_norm_econ",      r"Net Slant, Econ ($\tilde{S}^{\mathrm{econ}}$)"),
-        ("econ_share",               "Economic Article Share"),
+        ("right_norm",               r"Right Intensity ($\tilde{R}$)"),
+        ("left_norm",                r"Left Intensity ($\tilde{L}$)"),
     ]
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 7))
 
     for ax, (var, title) in zip(axes.flat, panels):
-        for label, color, marker in [("High exposure", "#cb181d", "s"),
-                                      ("Low exposure", "#2171b5", "o")]:
+        for label, color, marker in [("High exposure", "#bf6b63", "s"),
+                                      ("Low exposure", "#5d8aa8", "o")]:
             sub = df[df["exposure"] == label]
             means = sub.groupby("year")[var].mean()
             ax.plot(means.index, means.values, marker=marker, markersize=4,

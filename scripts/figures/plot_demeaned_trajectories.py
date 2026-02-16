@@ -43,9 +43,9 @@ FIG_DIR = BASE_DIR / "output" / "figures"
 NAFTA_YEAR = 1994
 
 # Colors
-C_HIGH = "#b30000"
-C_LOW  = "#4575b4"
-C_GAP  = "#333333"
+C_HIGH = "#bf6b63"
+C_LOW  = "#5d8aa8"
+C_GAP  = "#2d2d2d"
 
 
 def main():

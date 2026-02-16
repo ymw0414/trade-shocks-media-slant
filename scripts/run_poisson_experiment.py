@@ -188,9 +188,9 @@ def train_all_windows():
     print("=" * 72)
 
     # Load feature matrix (L1-normalized relative frequencies)
-    matrix_path = SPEECH_DIR / "05_tfidf_matrix.npz"
-    meta_path = SPEECH_DIR / "05_tfidf_meta.parquet"
-    vec_path = SPEECH_DIR / "05_tfidf_vectorizer.joblib"
+    matrix_path = SPEECH_DIR / "05_feature_matrix.npz"
+    meta_path = SPEECH_DIR / "05_feature_meta.parquet"
+    vec_path = SPEECH_DIR / "05_feature_vectorizer.joblib"
 
     print(f"\nLoading feature matrix: {matrix_path}")
     X_all = sp.load_npz(matrix_path)

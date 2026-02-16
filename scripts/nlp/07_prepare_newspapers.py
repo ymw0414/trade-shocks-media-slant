@@ -19,10 +19,10 @@ Year-to-Congress mapping:
 
 Inputs:
   - data/intermediate/newspapers/newspapers_{year}.parquet
-  - data/processed/speeches/05_tfidf_vectorizer.joblib
+  - data/processed/speeches/05_feature_vectorizer.joblib
 
 Outputs (per congress):
-  - 07_newspaper_tfidf_cong_{cong}.npz  (sparse: relative freq or TF-IDF)
+  - 07_newspaper_features_cong_{cong}.npz  (sparse: relative freq or TF-IDF in legacy mode)
   - 07_newspaper_meta_cong_{cong}.parquet
 """
 
@@ -49,7 +49,7 @@ import text_analyzer  # noqa: F401 — registers module for joblib.load
 import pipeline_config as cfg
 
 NEWSPAPER_DIR   = cfg.RAW_NEWSPAPERS
-VECTORIZER_PATH = cfg.SPEECH_DIR / "05_tfidf_vectorizer.joblib"
+VECTORIZER_PATH = cfg.SPEECH_DIR / "05_feature_vectorizer.joblib"
 OUT_DIR         = cfg.NEWS_DIR
 
 USE_RELATIVE_FREQ = cfg.CONFIG.get("use_relative_freq", True)
@@ -184,7 +184,7 @@ if __name__ == "__main__":
             feature_matrix = count_matrix
 
         # Save
-        sp.save_npz(OUT_DIR / f"07_newspaper_tfidf_cong_{cong}.npz", feature_matrix)
+        sp.save_npz(OUT_DIR / f"07_newspaper_features_cong_{cong}.npz", feature_matrix)
         meta.to_parquet(OUT_DIR / f"07_newspaper_meta_cong_{cong}.parquet")
 
         elapsed = time.time() - window_start

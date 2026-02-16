@@ -8,7 +8,7 @@ More training data per window should stabilize coefficient selection,
 particularly for the 102+103 window which had sparse coefficients.
 
 Computes a fresh speech-newspaper vocabulary intersection from the
-current TF-IDF files (avoids stale intersection column indices).
+current feature matrix files (avoids stale intersection column indices).
 
 Outputs:
   - data/processed/speeches/models/06_lasso_3w_{w1}_{w2}_{w3}.joblib
@@ -35,16 +35,16 @@ PROC_DIR = BASE_DIR / "data" / "processed" / "speeches"
 NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 OUT_DIR = PROC_DIR / "models"
 
-TFIDF_PATH = PROC_DIR / "05_tfidf_matrix.npz"
-META_PATH = PROC_DIR / "05_tfidf_meta.parquet"
+MATRIX_PATH = PROC_DIR / "05_feature_matrix.npz"
+META_PATH = PROC_DIR / "05_feature_meta.parquet"
 
 MIN_NEWSPAPER_DF = 100
 
 # ------------------------------------------------------------------
-# 1. Load TF-IDF matrix and metadata
+# 1. Load feature matrix and metadata
 # ------------------------------------------------------------------
-print("Loading TF-IDF matrix ...")
-X_all = sp.load_npz(TFIDF_PATH)
+print("Loading feature matrix ...")
+X_all = sp.load_npz(MATRIX_PATH)
 
 print("Loading metadata ...")
 meta = pd.read_parquet(META_PATH)
@@ -60,13 +60,13 @@ print("\nComputing speech-newspaper vocabulary intersection ...")
 
 newspaper_doc_count = np.zeros(n_full_features, dtype=np.int64)
 for cong in range(100, 109):
-    tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong}.npz"
-    if not tfidf_path.exists():
-        print(f"  WARNING: {tfidf_path.name} not found, skipping")
+    feat_path = NEWSPAPER_DIR / f"07_newspaper_features_cong_{cong}.npz"
+    if not feat_path.exists():
+        print(f"  WARNING: {feat_path.name} not found, skipping")
         continue
-    nX = sp.load_npz(tfidf_path)
+    nX = sp.load_npz(feat_path)
     assert nX.shape[1] == n_full_features, \
-        f"Newspaper TF-IDF cols ({nX.shape[1]}) != speech TF-IDF cols ({n_full_features})"
+        f"Newspaper feature cols ({nX.shape[1]}) != speech feature cols ({n_full_features})"
     col_nnz = np.diff(nX.tocsc().indptr)
     newspaper_doc_count += col_nnz
     print(f"  Congress {cong}: {nX.shape[0]:,} articles")

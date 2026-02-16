@@ -7,7 +7,7 @@ Replaces the main pipeline's 2-congress window slant scores with
 3-congress window scores, then re-runs DiD regressions.
 
 Steps:
-  1. Project 3-window LASSO coefficients onto newspaper TF-IDF
+  1. Project 3-window LASSO coefficients onto newspaper features
   2. Normalize by 3-window partisan gap (mu_R - mu_D)
   3. Aggregate to newspaper-year panel
   4. Swap slant columns into the existing regression panel
@@ -18,8 +18,8 @@ Requires: 06_train_lasso_3window.py to have been run first.
 Inputs:
   - data/processed/speeches/models/06_lasso_3w_*.joblib
   - data/processed/speeches/models/06_intersection_cols.npy
-  - data/processed/speeches/05_tfidf_matrix.npz / meta.parquet
-  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - data/processed/speeches/05_feature_matrix.npz / meta.parquet
+  - data/processed/newspapers/07_newspaper_features_cong_{cong}.npz
   - data/processed/newspapers/04_newspaper_labeled_cong_{cong}.parquet
   - data/processed/panel/14_regression_panel.parquet
 
@@ -42,7 +42,7 @@ BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 MODEL_DIR = BASE_DIR / "data" / "processed" / "speeches" / "models"
 SPEECH_DIR = BASE_DIR / "data" / "processed" / "speeches"
 NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
-PANEL_PATH = BASE_DIR / "data" / "processed" / "panel" / "14_regression_panel.parquet"
+PANEL_PATH = BASE_DIR / "data" / "processed" / "runs" / "exp_shvocab_cv" / "panel" / "14_regression_panel.parquet"
 TAB_DIR = BASE_DIR / "output" / "tables"
 
 ECON_PERCENTILE = 90
@@ -67,7 +67,7 @@ STATE_TO_DIVISION = {
 
 
 def compute_raw_scores(X, coef):
-    """Compute raw slant decomposition from TF-IDF matrix and coefficients."""
+    """Compute raw slant decomposition from feature matrix and coefficients."""
     pos_mask = coef > 0
     neg_mask = coef < 0
     right = X[:, pos_mask].dot(coef[pos_mask])
@@ -89,9 +89,9 @@ def main():
     # ------------------------------------------------------------------
     # 1. Load speech data (for normalization gap computation)
     # ------------------------------------------------------------------
-    print("Loading speech TF-IDF and metadata ...")
-    X_speech = sp.load_npz(SPEECH_DIR / "05_tfidf_matrix.npz")
-    speech_meta = pd.read_parquet(SPEECH_DIR / "05_tfidf_meta.parquet")
+    print("Loading speech feature matrix and metadata ...")
+    X_speech = sp.load_npz(SPEECH_DIR / "05_feature_matrix.npz")
+    speech_meta = pd.read_parquet(SPEECH_DIR / "05_feature_meta.parquet")
 
     intersection_cols = np.load(MODEL_DIR / "06_intersection_cols_3w.npy")
     X_speech = X_speech[:, intersection_cols]
@@ -143,13 +143,13 @@ def main():
             "mu_R": mu_R, "mu_D": mu_D, "gap": gap,
         })
 
-        # --- Project onto newspaper TF-IDF ---
-        tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
-        if not tfidf_path.exists():
-            print(f"  WARNING: {tfidf_path.name} not found, skipping")
+        # --- Project onto newspaper features ---
+        features_path = NEWSPAPER_DIR / f"07_newspaper_features_cong_{cong_curr}.npz"
+        if not features_path.exists():
+            print(f"  WARNING: {features_path.name} not found, skipping")
             continue
 
-        X_news = sp.load_npz(tfidf_path)
+        X_news = sp.load_npz(features_path)
         X_news = X_news[:, intersection_cols]
 
         pos_mask = coef > 0

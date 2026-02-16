@@ -1,7 +1,7 @@
 """
-07b_rebuild_newspaper_tfidf.py
+07b_rebuild_newspaper_features.py
 
-Targeted rebuild of newspaper TF-IDF files that have inconsistent
+Targeted rebuild of newspaper feature matrix files that have inconsistent
 dimensions or are corrupted. Only processes specified congresses.
 """
 
@@ -22,7 +22,7 @@ import text_analyzer  # noqa: F401
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 NEWSPAPER_DIR = BASE_DIR / "data" / "intermediate" / "newspapers"
-VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
+VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_feature_vectorizer.joblib"
 OUT_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 # Rebuild congresses with wrong dimensions (need to match current vectorizer)
@@ -40,7 +40,7 @@ def _transform_chunk(vectorizer, texts):
 
 
 if __name__ == "__main__":
-    print("Loading TF-IDF vectorizer ...")
+    print("Loading vectorizer ...")
     vectorizer = joblib.load(VECTORIZER_PATH)
     expected_cols = len(vectorizer.vocabulary_)
     print(f"  Vocabulary size: {expected_cols:,}")
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         # Transform
         print(f"  [{i}/{total}] Congress {cong}: transforming {n_docs:,} articles ...")
         if n_docs < 1000:
-            tfidf = vectorizer.transform(texts)
+            features = vectorizer.transform(texts)
         else:
             chunks = np.array_split(texts, min(N_JOBS, n_docs))
             chunks = [c for c in chunks if len(c) > 0]
@@ -93,24 +93,24 @@ if __name__ == "__main__":
                 for chunk in chunks
             )
             del chunks
-            tfidf = sp.vstack(results, format="csr")
+            features = sp.vstack(results, format="csr")
             del results
             gc.collect()
 
-        assert tfidf.shape[1] == expected_cols, \
-            f"Got {tfidf.shape[1]} cols, expected {expected_cols}"
+        assert features.shape[1] == expected_cols, \
+            f"Got {features.shape[1]} cols, expected {expected_cols}"
 
-        sp.save_npz(OUT_DIR / f"07_newspaper_tfidf_cong_{cong}.npz", tfidf)
+        sp.save_npz(OUT_DIR / f"07_newspaper_features_cong_{cong}.npz", features)
         meta.to_parquet(OUT_DIR / f"07_newspaper_meta_cong_{cong}.parquet")
 
         elapsed = time.time() - window_start
         total_elapsed = time.time() - pipeline_start
         avg_per = total_elapsed / i
         remaining = avg_per * (total - i)
-        print(f"    {tfidf.shape}  |  {n_papers} papers  |  "
+        print(f"    {features.shape}  |  {n_papers} papers  |  "
               f"{elapsed:.0f}s  |  ETA: {remaining:.0f}s")
 
-        del tfidf, meta
+        del features, meta
         gc.collect()
 
     print(f"\nDone in {time.time() - pipeline_start:.0f}s")

@@ -20,6 +20,12 @@ import pandas as pd
 import pyfixest as pf
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -202,8 +208,8 @@ def plot_07_R_vs_D(all_results, years):
     """Side-by-side Share R vs D at P>0.7 threshold."""
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
     for idx, (depvar, title, color) in enumerate([
-        ("share_R_0.7", "Share Confident-R (P>0.7)", "#b83a3e"),
-        ("share_D_0.7", "Share Confident-D (P<0.3)", "#3d65a5"),
+        ("share_R_0.7", "Share Confident-R (P>0.7)", "#bf6b63"),
+        ("share_D_0.7", "Share Confident-D (P<0.3)", "#5d8aa8"),
     ]):
         ax = axes[idx]
         c = all_results[(0.7, depvar)]
@@ -233,9 +239,9 @@ def plot_grid(all_results, years):
     fig, axes = plt.subplots(5, 3, figsize=(18, 24))
     for row_idx, t in enumerate(THRESHOLDS):
         for col_idx, (stem, title_stem, color) in enumerate([
-            ("share_R", "Share Confident-R", "#b83a3e"),
-            ("share_D", "Share Confident-D", "#3d65a5"),
-            ("r_ratio", "R Ratio", "#7f0000"),
+            ("share_R", "Share Confident-R", "#bf6b63"),
+            ("share_D", "Share Confident-D", "#5d8aa8"),
+            ("r_ratio", "R Ratio", "#2d2d2d"),
         ]):
             ax = axes[row_idx, col_idx]
             depvar = f"{stem}_{t}"

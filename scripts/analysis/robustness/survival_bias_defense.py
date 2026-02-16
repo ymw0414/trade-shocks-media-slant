@@ -21,7 +21,14 @@ import os, sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from scipy import stats
 from pathlib import Path
 
@@ -238,11 +245,11 @@ def main():
 
     # Panel a: Vulnerability distribution by survival status
     ax = axes[0, 0]
-    ax.hist(full_vuln.dropna(), bins=15, alpha=0.6, color="#4c72b0",
+    ax.hist(full_vuln.dropna(), bins=15, alpha=0.6, color="#2d2d2d",
             label=f"Full span (n={len(full_vuln)})", density=True)
     ax.hist(part_vuln.dropna(), bins=15, alpha=0.6, color="#dd8452",
             label=f"Partial span (n={len(part_vuln)})", density=True)
-    ax.axvline(full_vuln.mean(), color="#4c72b0", linewidth=1.5, linestyle="--")
+    ax.axvline(full_vuln.mean(), color="#2d2d2d", linewidth=1.5, linestyle="--")
     ax.axvline(part_vuln.mean(), color="#dd8452", linewidth=1.5, linestyle="--")
     ax.set_xlabel("Vulnerability (scaled)", fontsize=9)
     ax.set_ylabel("Density", fontsize=9)
@@ -259,7 +266,7 @@ def main():
     ax.scatter(has_vuln["min_year"], has_vuln["vuln"], alpha=0.4, s=20, color="#333")
     z = np.polyfit(has_vuln["min_year"], has_vuln["vuln"], 1)
     x_line = np.array([min_yr, max_yr])
-    ax.plot(x_line, np.polyval(z, x_line), color="#c44e52", linewidth=1.5, linestyle="--")
+    ax.plot(x_line, np.polyval(z, x_line), color="#bf6b63", linewidth=1.5, linestyle="--")
     ax.set_xlabel("Entry year", fontsize=9)
     ax.set_ylabel("Vulnerability (scaled)", fontsize=9)
     ax.set_title("(b) Vulnerability vs Entry Timing", fontsize=10)
@@ -271,9 +278,9 @@ def main():
 
     # Panel c: Papers per year
     ax = axes[1, 0]
-    ax.bar(yearly_counts.index, yearly_counts.values, color="#4c72b0",
+    ax.bar(yearly_counts.index, yearly_counts.values, color="#2d2d2d",
            edgecolor="white", linewidth=0.5)
-    ax.axvline(1993.5, color="#c44e52", linewidth=1.0, linestyle="--",
+    ax.axvline(1993.5, color="#7a7a7a", linewidth=1.0, linestyle="--",
                alpha=0.7, label="NAFTA (1994)")
     ax.set_xlabel("Year", fontsize=9)
     ax.set_ylabel("Number of newspapers", fontsize=9)
@@ -292,7 +299,7 @@ def main():
     bal_ses = [comparison_rows[i]["balanced_se"] for i in range(len(outcomes))]
 
     ax.bar(x_pos - width/2, full_coefs, width, label="Full panel",
-           color="#4c72b0", edgecolor="white")
+           color="#2d2d2d", edgecolor="white")
     ax.errorbar(x_pos - width/2, full_coefs, yerr=[1.96*s for s in full_ses],
                 fmt="none", color="black", capsize=3)
     ax.bar(x_pos + width/2, bal_coefs, width, label="Balanced panel",

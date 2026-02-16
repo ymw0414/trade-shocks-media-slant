@@ -1,5 +1,5 @@
 """
-05_build_tfidf.py
+05_build_features.py
 
 Build feature matrix from congressional speeches following Widmer et al. methodology.
 
@@ -25,7 +25,7 @@ Widmer frequency filter (B.2):
   Result: ~14,224 bigrams (Widmer gets 14,224)
 
 Outputs:
-  - 05_feature_matrix.npz  (sparse: relative freq or TF-IDF)
+  - 05_feature_matrix.npz  (sparse: relative freq or TF-IDF in legacy mode)
   - 05_speech_meta.parquet  (per-speech or per-legislator metadata)
   - 05_vectorizer.joblib    (fitted vectorizer for step 07)
   - 05_vocab_filter_idx.npy (column indices of filtered vocabulary)
@@ -60,8 +60,8 @@ OUT_VECTORIZER = OUT_DIR / "05_vectorizer.joblib"
 OUT_VOCAB_IDX  = OUT_DIR / "05_vocab_filter_idx.npy"
 
 # For backward compatibility (steps that reference old names)
-OUT_TFIDF      = OUT_DIR / "05_tfidf_matrix.npz"
-OUT_TFIDF_META = OUT_DIR / "05_tfidf_meta.parquet"
+OUT_MATRIX_COMPAT = OUT_DIR / "05_feature_matrix.npz"
+OUT_META_COMPAT   = OUT_DIR / "05_feature_meta.parquet"
 
 # ------------------------------------------------------------------
 # Parliamentary procedure phrases to remove
@@ -337,7 +337,7 @@ from text_analyzer import TextAnalyzer
 
 def build_analyzer(english_stops, geo_unigrams, blocked_bigrams,
                    distinctive_name_tokens=None, bigrams_only=False):
-    """Return a picklable callable analyzer for CountVectorizer/TfidfVectorizer."""
+    """Return a picklable callable analyzer for CountVectorizer (or TfidfVectorizer in legacy mode)."""
     single_stops = english_stops | geo_unigrams
     if distinctive_name_tokens:
         single_stops = single_stops | distinctive_name_tokens
@@ -579,7 +579,7 @@ if __name__ == "__main__":
     filtered_vectorizer.fixed_vocabulary_ = True
 
     # ------------------------------------------------------------------
-    # 8. Normalize to relative frequencies (Widmer) or keep TF-IDF
+    # 8. Normalize to relative frequencies (Widmer) or keep TF-IDF values (legacy)
     # ------------------------------------------------------------------
     if USE_WIDMER:
         # L1 normalize rows: each row sums to 1 (relative frequency)
@@ -601,16 +601,16 @@ if __name__ == "__main__":
     print(f"\n  Saved feature matrix -> {OUT_MATRIX}")
 
     # Also save with legacy name for backward compatibility
-    sp.save_npz(OUT_TFIDF, feature_matrix)
+    sp.save_npz(OUT_MATRIX_COMPAT, feature_matrix)
 
     meta.to_parquet(OUT_META)
     print(f"  Saved metadata -> {OUT_META}")
-    meta.to_parquet(OUT_TFIDF_META)  # backward compat
+    meta.to_parquet(OUT_META_COMPAT)  # backward compat
 
     joblib.dump(filtered_vectorizer, OUT_VECTORIZER)
     print(f"  Saved vectorizer -> {OUT_VECTORIZER}")
     # Also save with legacy name
-    joblib.dump(filtered_vectorizer, OUT_DIR / "05_tfidf_vectorizer.joblib")
+    joblib.dump(filtered_vectorizer, OUT_DIR / "05_feature_vectorizer.joblib")
 
     np.save(OUT_VOCAB_IDX, filter_idx)
     print(f"  Saved vocabulary filter indices -> {OUT_VOCAB_IDX}")

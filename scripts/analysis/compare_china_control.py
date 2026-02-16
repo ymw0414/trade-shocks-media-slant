@@ -10,7 +10,14 @@ import os
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
@@ -136,13 +143,13 @@ def main():
         ax.errorbar(yrs - offset, coefs_a["coef"],
                     yerr=[coefs_a["coef"] - coefs_a["ci_lo"],
                           coefs_a["ci_hi"] - coefs_a["coef"]],
-                    fmt="o", color="#cb181d", markersize=4, capsize=2.5,
+                    fmt="o", color="#2d2d2d", markersize=4, capsize=2.5,
                     linewidth=1.0, label="China x all years")
 
         ax.errorbar(yrs + offset, coefs_b["coef"],
                     yerr=[coefs_b["coef"] - coefs_b["ci_lo"],
                           coefs_b["ci_hi"] - coefs_b["coef"]],
-                    fmt="s", color="#2171b5", markersize=4, capsize=2.5,
+                    fmt="s", color="#7a7a7a", markersize=4, capsize=2.5,
                     linewidth=1.0, label="China x post-2000 only")
 
         ax.axhline(0, color="black", linewidth=0.5)

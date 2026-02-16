@@ -19,7 +19,7 @@ Rolling-window mapping:
 
 Inputs:
   - models/06_lasso_window_{cong}.joblib
-  - newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - newspapers/07_newspaper_features_cong_{cong}.npz
 
 Outputs (per congress):
   - newspapers/08_article_slant_cong_{cong}.parquet
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         n_neg = neg_mask.sum()
 
         # 2. Load newspaper feature matrix
-        feat_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
+        feat_path = NEWSPAPER_DIR / f"07_newspaper_features_cong_{cong_curr}.npz"
         if not feat_path.exists():
             print(f"  WARNING: {feat_path.name} not found, skipping")
             continue

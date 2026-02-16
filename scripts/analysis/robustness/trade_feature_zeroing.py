@@ -22,7 +22,14 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nlp"))
@@ -141,8 +148,8 @@ def run_pipeline(zero_mask, label, feature_names):
     shared_vocab_mask = np.load(shared_vocab_path) if shared_vocab_path.exists() else None
 
     # Load speech data for normalization
-    X_speech = sp.load_npz(SPEECH_DIR / "05_tfidf_matrix.npz")
-    speech_meta = pd.read_parquet(SPEECH_DIR / "05_tfidf_meta.parquet")
+    X_speech = sp.load_npz(SPEECH_DIR / "05_feature_matrix.npz")
+    speech_meta = pd.read_parquet(SPEECH_DIR / "05_feature_meta.parquet")
     if shared_vocab_mask is not None:
         X_speech = X_speech[:, shared_vocab_mask]
 
@@ -186,7 +193,7 @@ def run_pipeline(zero_mask, label, feature_names):
         })
 
         # --- Step 08: Score newspaper articles ---
-        feat_path = NEWS_IN_DIR / f"07_newspaper_tfidf_cong_{cong_curr}.npz"
+        feat_path = NEWS_IN_DIR / f"07_newspaper_features_cong_{cong_curr}.npz"
         if not feat_path.exists():
             continue
         X_news = sp.load_npz(feat_path)
@@ -440,7 +447,7 @@ def main():
         x_pos = [0, 1, 2]
         coefs = [b["coef"], n["coef"], br["coef"]]
         ses = [b["se"], n["se"], br["se"]]
-        colors = ["#333333", "#4c72b0", "#dd8452"]
+        colors = ["#2d2d2d", "#7a7a7a", "#bf6b63"]
         labels_x = ["Baseline", "Narrow\nzeroed", "Broad\nzeroed"]
 
         for j, (xp, c, s, col) in enumerate(zip(x_pos, coefs, ses, colors)):

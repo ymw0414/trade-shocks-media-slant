@@ -11,6 +11,13 @@ Checks:
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import stats
@@ -145,7 +152,7 @@ def plot_distributions(prism):
     valid = prism["prism_slant"].dropna()
 
     # Histogram
-    axes[0].hist(valid, bins=100, color="#2171b5", alpha=0.7, edgecolor="white", linewidth=0.3)
+    axes[0].hist(valid, bins=100, color="#2d2d2d", alpha=0.7, edgecolor="white", linewidth=0.3)
     axes[0].axvline(0, color="red", linewidth=1, linestyle="--")
     axes[0].set_xlabel("PRISM Slant (sim_R - sim_D)")
     axes[0].set_ylabel("Count")
@@ -213,7 +220,7 @@ def topic_analysis(prism):
     fig, ax = plt.subplots(figsize=(12, 8))
     top_n = min(30, len(topic_avg))
     plot_data = topic_avg.iloc[:top_n]
-    colors = ["#cb181d" if x > 0 else "#2171b5" for x in plot_data["mean_slant"]]
+    colors = ["#bf6b63" if x > 0 else "#5d8aa8" for x in plot_data["mean_slant"]]
     ax.barh(range(top_n), plot_data["mean_slant"], color=colors, alpha=0.7)
     ax.set_yticks(range(top_n))
     ax.set_yticklabels(plot_data.index, fontsize=7)

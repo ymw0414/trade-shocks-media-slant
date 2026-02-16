@@ -2,7 +2,7 @@
 run_rebuild_pipeline.py
 
 Re-run the full NLP pipeline from step 06 onward after rebuilding
-newspaper TF-IDF (step 07). Then run 3-window robustness.
+newspaper features (step 07). Then run 3-window robustness.
 
 Run order:
   06 (main, 2-window) -> 08 -> 09 -> 10 -> 11 -> 14

@@ -14,7 +14,14 @@ Outputs:
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
@@ -46,9 +53,9 @@ def main():
         n_pos = (x > 0).sum()
         n_neg = (x < 0).sum()
 
-        ax.hist(x[x >= 0], bins=bins, color="#d68c8c", edgecolor="#b83a3e",
+        ax.hist(x[x >= 0], bins=bins, color="#ddb5b1", edgecolor="#bf6b63",
                 linewidth=0.5, zorder=2, label="R-leaning")
-        ax.hist(x[x < 0], bins=bins, color="#85b0d4", edgecolor="#3d65a5",
+        ax.hist(x[x < 0], bins=bins, color="#adc4d4", edgecolor="#5d8aa8",
                 linewidth=0.5, zorder=2, label="D-leaning")
 
         ax.axvline(0, color="black", linewidth=0.7, linestyle="-", zorder=3)

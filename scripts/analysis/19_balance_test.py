@@ -32,16 +32,10 @@ def main():
     TAB_DIR.mkdir(parents=True, exist_ok=True)
     panel = pd.read_parquet(PANEL_PATH)
 
-    # --- Pre-NAFTA (1987-1993) newspaper-year averages collapsed to CZ ---
+    # --- Pre-NAFTA (1987-1993) averages collapsed to CZ ---
     pre = panel[panel["year"] <= 1993].copy()
     pre_cz = pre.groupby("cz").agg(
-        pre_net_slant=("net_slant_norm", "mean"),
-        pre_politicization=("politicization_norm", "mean"),
-        pre_right_intensity=("right_norm", "mean"),
-        pre_left_intensity=("left_norm", "mean"),
         pre_ext_R=("ext_R", "mean"),
-        pre_ext_D=("ext_D", "mean"),
-        pre_n_articles=("n_articles", "mean"),
     ).reset_index()
 
     # --- CZ-level cross-section (time-invariant) ---
@@ -64,12 +58,7 @@ def main():
 
     # Variables to test
     variables = [
-        ("pre_net_slant", "Pre-NAFTA net slant ($\\tilde{S}$)"),
-        ("pre_politicization", "Pre-NAFTA politicization ($\\tilde{P}$)"),
-        ("pre_ext_R", "Pre-NAFTA share R-leaning"),
-        ("pre_ext_D", "Pre-NAFTA share D-leaning"),
-        ("pre_right_intensity", "Pre-NAFTA right intensity ($\\tilde{R}$)"),
-        ("pre_left_intensity", "Pre-NAFTA left intensity ($\\tilde{L}$)"),
+        ("pre_ext_R", "Share R-leaning, 1987--1993"),
         ("manushare1990", "Manuf.\\ empl.\\ share, 1990"),
         ("less_highschool1990", "Share less than high school, 1990"),
         ("bachelor_higher1990", "Share bachelor's or higher, 1990"),
@@ -108,8 +97,7 @@ def main():
     # --- Joint F-test: regress vulnerability on all pre-treatment covariates ---
     from sklearn.linear_model import LinearRegression
 
-    X_cols = ["pre_net_slant", "pre_politicization", "pre_ext_R",
-              "pre_right_intensity", "pre_left_intensity",
+    X_cols = ["pre_ext_R",
               "manushare1990",
               "less_highschool1990", "bachelor_higher1990",
               "income1989", "pop1990_total", "china_shock"]
@@ -160,11 +148,11 @@ def main():
 
     # Pre-NAFTA media outcomes
     lines.append(r"        \addlinespace[3pt]")
-    lines.append(r"        \multicolumn{5}{@{}l}{\emph{Panel A: Pre-NAFTA media outcomes (1987--1993)}} \\")
+    lines.append(r"        \multicolumn{5}{@{}l}{\emph{Panel A: Pre-NAFTA media outcome (1987--1993)}} \\")
     lines.append(r"        \addlinespace[2pt]")
 
     for i, row in enumerate(rows):
-        if i == 6:  # Switch to Panel B
+        if i == 1:  # Switch to Panel B
             lines.append(r"        \addlinespace[4pt]")
             lines.append(r"        \multicolumn{5}{@{}l}{\emph{Panel B: Socioeconomic characteristics}} \\")
             lines.append(r"        \addlinespace[2pt]")
@@ -184,7 +172,7 @@ def main():
     lines.append(r"    \begin{tablenotes}[flushleft]")
     lines.append(r"        \setlength{\labelsep}{0pt}")
     lines.append(r"        \scriptsize")
-    lines.append(r"        \item \textit{Notes:} Commuting zones split at the median of NAFTA vulnerability (1990). Panel~A reports pre-NAFTA (1987--1993) means of newspaper-level outcomes averaged within each CZ. Panel~B reports 1990 Census characteristics. The ``Difference'' column reports High $-$ Low. $p$-values are from two-sided Welch $t$-tests.")
+    lines.append(r"        \item \textit{Notes:} Commuting zones split at the median of NAFTA vulnerability (1990). Panel~A reports the pre-NAFTA (1987--1993) mean of the main outcome variable, averaged across newspaper--years within each CZ. Panel~B reports 1990 socioeconomic characteristics. The ``Difference'' column reports High $-$ Low. $p$-values are from two-sided Welch $t$-tests.")
     lines.append(r"    \end{tablenotes}")
     lines.append(r"    \end{threeparttable}")
     lines.append(r"\end{table}")

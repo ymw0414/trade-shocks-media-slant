@@ -28,7 +28,14 @@ import sys
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "nlp"))
@@ -150,14 +157,14 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     ax.errorbar(yrs - offset, coefs_base["coef"],
                 yerr=[coefs_base["coef"] - coefs_base["ci_lo"],
                       coefs_base["ci_hi"] - coefs_base["coef"]],
-                fmt="o", color="#333333", markersize=4, capsize=2.5,
+                fmt="o", color="#2d2d2d", markersize=4, capsize=2.5,
                 linewidth=1.0, label="Baseline")
 
-    # With controls (teal)
+    # With controls (steel blue)
     ax.errorbar(yrs + offset, coefs_ctrl["coef"],
                 yerr=[coefs_ctrl["coef"] - coefs_ctrl["ci_lo"],
                       coefs_ctrl["ci_hi"] - coefs_ctrl["coef"]],
-                fmt="s", color="#009688", markersize=4, capsize=2.5,
+                fmt="s", color="#bf6b63", markersize=4, capsize=2.5,
                 linewidth=1.0, linestyle="none", label="+ China shock, manushare")
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")
@@ -192,13 +199,13 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path,
     ax.errorbar(yrs - offset, coefs_right["coef"],
                 yerr=[coefs_right["coef"] - coefs_right["ci_lo"],
                       coefs_right["ci_hi"] - coefs_right["coef"]],
-                fmt="o", color="#b83a3e", markersize=4, capsize=2.5,
+                fmt="o", color="#bf6b63", markersize=4, capsize=2.5,
                 linewidth=1.0, label=label_right)
 
     ax.errorbar(yrs + offset, coefs_left["coef"],
                 yerr=[coefs_left["coef"] - coefs_left["ci_lo"],
                       coefs_left["ci_hi"] - coefs_left["coef"]],
-                fmt="s", color="#3d65a5", markersize=4, capsize=2.5,
+                fmt="s", color="#5d8aa8", markersize=4, capsize=2.5,
                 linewidth=1.0, label=label_left)
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")

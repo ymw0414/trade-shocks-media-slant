@@ -112,7 +112,7 @@ print("PART 2: LASSO Phrase Extraction")
 print("=" * 60)
 
 # Load vectorizer to get feature names
-vec_path = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
+vec_path = BASE_DIR / "data" / "processed" / "speeches" / "05_feature_vectorizer.joblib"
 print(f"Loading vectorizer from {vec_path.name} ...")
 vectorizer = joblib.load(vec_path)
 all_feature_names = vectorizer.get_feature_names_out()

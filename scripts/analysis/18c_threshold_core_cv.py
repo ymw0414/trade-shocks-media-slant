@@ -11,6 +11,12 @@ import pandas as pd
 import pyfixest as pf
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -64,6 +70,7 @@ def main():
     # 2. Build panel
     panel = pd.read_parquet(RUN / "panel" / "14_regression_panel.parquet")
     panel = panel[~panel["paper"].isin(cfg.NATIONAL_PAPERS)]
+    panel = panel[~panel["paper"].isin(cfg.NON_DAILY_PAPERS)]
     panel = panel[panel["cz"].notna() & panel["vulnerability1990_scaled"].notna()].copy()
     panel = panel[panel["year"] <= 2004].copy()
     merged = panel.merge(agg, on=["paper", "year"], how="left")
@@ -117,7 +124,7 @@ def main():
 
     # 4. Plot share_R overlay
     fig, ax = plt.subplots(figsize=(12, 6))
-    colors_r = {0.5: "#d68c8c", 0.6: "#c46060", 0.7: "#b83a3e", 0.8: "#8b1a1a"}
+    colors_r = {0.5: "#ddb5b1", 0.6: "#cc9089", 0.7: "#bf6b63", 0.8: "#994d47"}
     offsets = {0.5: -0.3, 0.6: -0.1, 0.7: 0.1, 0.8: 0.3}
     for t in THRESHOLDS:
         c = all_results[(t, f"share_R_{t}")]
@@ -144,7 +151,7 @@ def main():
 
     # 5. Plot r_ratio overlay
     fig, ax = plt.subplots(figsize=(12, 6))
-    colors_b = {0.5: "#d68c8c", 0.6: "#b86060", 0.7: "#993a3a", 0.8: "#7f0000"}
+    colors_b = {0.5: "#ddb5b1", 0.6: "#cc9089", 0.7: "#bf6b63", 0.8: "#994d47"}
     for t in THRESHOLDS:
         c = all_results[(t, f"r_ratio_{t}")]
         yrs = c["year"].values
@@ -171,8 +178,8 @@ def main():
     # 6. Plot 0.7 R vs D
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
     for idx, (depvar, title, color) in enumerate([
-        ("share_R_0.7", "Share Confident-R (P>0.7)", "#b83a3e"),
-        ("share_D_0.7", "Share Confident-D (P<0.3)", "#3d65a5"),
+        ("share_R_0.7", "Share Confident-R (P>0.7)", "#bf6b63"),
+        ("share_D_0.7", "Share Confident-D (P<0.3)", "#5d8aa8"),
     ]):
         ax = axes[idx]
         c = all_results[(0.7, depvar)]
@@ -199,9 +206,9 @@ def main():
     fig, axes = plt.subplots(4, 3, figsize=(18, 20))
     for row_idx, t in enumerate(THRESHOLDS):
         for col_idx, (stem, title_stem, color) in enumerate([
-            ("share_R", "Share Confident-R", "#b83a3e"),
-            ("share_D", "Share Confident-D", "#3d65a5"),
-            ("r_ratio", "R Ratio", "#7f0000"),
+            ("share_R", "Share Confident-R", "#bf6b63"),
+            ("share_D", "Share Confident-D", "#5d8aa8"),
+            ("r_ratio", "R Ratio", "#2d2d2d"),
         ]):
             ax = axes[row_idx, col_idx]
             depvar = f"{stem}_{t}"

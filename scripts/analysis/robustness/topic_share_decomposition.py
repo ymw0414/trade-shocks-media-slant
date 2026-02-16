@@ -1,7 +1,7 @@
 """
 Topic-level share decomposition.
 
-Classify articles by topic using keyword matching on TF-IDF features,
+Classify articles by topic using keyword matching on features,
 then compute topic-specific share of R-leaning articles (ext_R) and run DiD.
 
 Key question: Is the increase in R-leaning share uniform across topics,
@@ -9,7 +9,7 @@ or concentrated in specific domains (e.g., trade)?
 
 Approach:
 1. Load vocabulary and classify features into 10 topic categories
-2. For each article, check which topic features are present (non-zero TF-IDF)
+2. For each article, check which topic features are present (non-zero frequency)
 3. Compute topic-specific ext_R at newspaper-year level
 4. Run DiD on each topic's ext_R
 
@@ -24,7 +24,14 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nlp"))
@@ -34,7 +41,7 @@ import pipeline_config as cfg
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 MODEL_DIR = cfg.MODEL_DIR
 SPEECH_DIR = cfg.INPUT_SPEECH_DIR
-NEWS_TFIDF_DIR = cfg.INPUT_NEWS_DIR
+NEWS_FEATURES_DIR = cfg.INPUT_NEWS_DIR
 NEWS_DIR = cfg.NEWS_DIR
 LABEL_DIR = cfg.NEWSPAPER_LABELS
 PANEL_PATH = cfg.PANEL_DIR / "14_regression_panel.parquet"
@@ -194,7 +201,7 @@ def main():
         meta = pd.read_parquet(label_path, columns=["paper", "year", "is_news"])
 
         # Apply sample indices if they exist
-        sample_idx_path = NEWS_TFIDF_DIR / f"07_sample_idx_cong_{cong}.npy"
+        sample_idx_path = NEWS_FEATURES_DIR / f"07_sample_idx_cong_{cong}.npy"
         if sample_idx_path.exists():
             idx = np.load(sample_idx_path)
             meta = meta.iloc[idx].reset_index(drop=True)
@@ -211,9 +218,9 @@ def main():
         is_news = meta["is_news"].values
         news_idx = np.where(is_news)[0]
 
-        # Load TF-IDF matrix
-        tfidf_path = NEWS_TFIDF_DIR / f"07_newspaper_tfidf_cong_{cong}.npz"
-        X = sp.load_npz(tfidf_path)
+        # Load feature matrix
+        features_path = NEWS_FEATURES_DIR / f"07_newspaper_features_cong_{cong}.npz"
+        X = sp.load_npz(features_path)
         if shared_vocab_mask is not None:
             X = X[:, shared_vocab_mask]
 
@@ -403,48 +410,101 @@ def main():
     print(f"\nResults saved: {csv_path}")
 
     # --- Plot ---
-    # Coefficient plot: dot + 95% CI by topic
     plot_data = res_df[res_df["key"] != "all"].copy()
     plot_data = plot_data.sort_values("coef", ascending=True)
+    all_coef = res_df[res_df["key"] == "all"]["coef"].values[0]
 
-    fig, ax = plt.subplots(figsize=(7, 5))
+    # Standard academic palette
+    SIG_COLOR = "#2d2d2d"     # dark navy for significant
+    INSIG_COLOR = "#b0b0b0"   # light gray for not significant
+    TRADE_COLOR = "#bf6b63"   # crimson for trade (highlight)
+    REF_COLOR = "#7a7a7a"     # reference line
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
 
     y_pos = np.arange(len(plot_data))
+    coefs = plot_data["coef"].values
+    ses = plot_data["se"].values
+    pvals = plot_data["p_value"].values
     is_trade = plot_data["key"].values == "trade"
+    is_sig = pvals < 0.05
 
-    # Non-trade topics: gray
-    mask_other = ~is_trade
-    ax.errorbar(plot_data["coef"].values[mask_other], y_pos[mask_other],
-                xerr=1.96 * plot_data["se"].values[mask_other],
-                fmt="o", color="#888888", markersize=5, capsize=3,
-                ecolor="#aaaaaa", elinewidth=1.2, markeredgecolor="white",
-                markeredgewidth=0.5, zorder=2)
+    # Light horizontal gridlines for readability
+    for y in y_pos:
+        ax.axhline(y, color="#f0f0f0", linewidth=0.6, zorder=0)
 
-    # Trade: black, larger marker
-    mask_trade = is_trade
-    ax.errorbar(plot_data["coef"].values[mask_trade], y_pos[mask_trade],
-                xerr=1.96 * plot_data["se"].values[mask_trade],
-                fmt="D", color="#222222", markersize=7, capsize=3,
-                ecolor="#444444", elinewidth=1.5, markeredgecolor="white",
-                markeredgewidth=0.5, zorder=3)
+    # Overall coefficient reference line
+    ax.axvline(all_coef, color=REF_COLOR, linestyle="--", linewidth=1.0,
+               alpha=0.7, zorder=1)
+    ax.axvline(0, color="black", linewidth=0.6, zorder=1)
+
+    # Plot each topic individually
+    for i, y in enumerate(y_pos):
+        c, se_i, sig, trade = coefs[i], ses[i], is_sig[i], is_trade[i]
+
+        if trade:
+            color = TRADE_COLOR
+            marker = "D"
+        elif sig:
+            color = SIG_COLOR
+            marker = "o"
+        else:
+            color = INSIG_COLOR
+            marker = "o"
+
+        ms = 7
+        elw = 1.4
+        alpha = 0.9
+
+        ax.errorbar(c, y, xerr=1.96 * se_i,
+                    fmt=marker, color=color, markersize=ms,
+                    capsize=3.5, capthick=elw,
+                    ecolor=color, elinewidth=elw,
+                    markeredgecolor="white", markeredgewidth=0.8,
+                    alpha=alpha, zorder=3)
+
+        # Article share annotation on the right
+        share = plot_data["avg_article_share"].values[i]
+        ax.text(0.205, y, f"{share:.0%}",
+                fontsize=7.5, color="#888888", va="center", ha="right")
 
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(plot_data["topic"], fontsize=8)
-    ax.set_xlabel("DiD coefficient on Share R-leaning", fontsize=9)
+    ax.set_yticklabels(plot_data["topic"], fontsize=9)
+    ax.set_xlabel("DiD coefficient on Share R-leaning", fontsize=10)
+    ax.set_xlim(-0.09, 0.215)
 
-    # Overall coefficient as vertical dashed line
-    all_coef = res_df[res_df["key"] == "all"]["coef"].values[0]
-    ax.axvline(all_coef, color="#555555", linestyle="--", linewidth=1,
-               alpha=0.7, label=f"Overall = {all_coef:.3f}")
-    ax.axvline(0, color="black", linewidth=0.5)
-    ax.legend(fontsize=8, loc="lower right")
+    # Custom legend — upper left
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=SIG_COLOR,
+               markersize=7, markeredgecolor="white", markeredgewidth=0.8,
+               label="$p < 0.05$"),
+        Line2D([0], [0], marker="o", color="w", markerfacecolor=INSIG_COLOR,
+               markersize=6, markeredgecolor="white", markeredgewidth=0.8,
+               alpha=0.7, label="Not significant"),
+        Line2D([0], [0], marker="D", color="w", markerfacecolor=TRADE_COLOR,
+               markersize=7, markeredgecolor="white", markeredgewidth=0.8,
+               label="Trade"),
+        Line2D([0], [0], color=REF_COLOR, linestyle="--", linewidth=1.0,
+               alpha=0.7, label=f"Overall = {all_coef:.3f}"),
+    ]
+    ax.legend(handles=legend_elements, fontsize=8, loc="upper left",
+              framealpha=0.95, edgecolor="#dddddd")
+
+    # Article share column header
+    ax.text(0.205, len(y_pos) - 0.3, "share", fontsize=7.5,
+            color="#999999", va="bottom", ha="right",
+            fontweight="bold")
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_linewidth(0.5)
+    ax.spines["bottom"].set_linewidth(0.5)
+    ax.tick_params(axis="both", which="both", length=3, width=0.5)
 
     fig.tight_layout()
     fig_path = FIG_DIR / "topic_share_decomposition.pdf"
-    fig.savefig(fig_path, dpi=200, bbox_inches="tight", facecolor="white")
+    fig.savefig(fig_path, dpi=300, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print(f"Figure saved: {fig_path}")
 

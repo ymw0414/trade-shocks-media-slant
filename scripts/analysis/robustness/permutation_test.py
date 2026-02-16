@@ -17,7 +17,14 @@ import os, sys, time
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "nlp"))
@@ -240,34 +247,42 @@ def main():
     res_df.to_csv(csv_path, index=False, float_format="%.6f")
     print(f"\nResults saved: {csv_path}")
 
-    # --- Plot ---
-    fig, axes = plt.subplots(1, len(outcomes), figsize=(4 * len(outcomes), 3.5))
-    if len(outcomes) == 1:
-        axes = [axes]
+    # --- Plot (Share R-Leaning only) ---
+    plot_var, plot_label = "ext_R", "Share R-Leaning"
+    perm_arr = perm_coefs[plot_var]
+    perm_arr = perm_arr[~np.isnan(perm_arr)]
+    act = actual[plot_var]
+    p_val = np.mean(np.abs(perm_arr) >= np.abs(act))
 
-    for ax, (depvar, label) in zip(axes, outcomes):
-        perm_arr = perm_coefs[depvar]
-        perm_arr = perm_arr[~np.isnan(perm_arr)]
-        act = actual[depvar]
-        p_val = np.mean(np.abs(perm_arr) >= np.abs(act))
+    # Critical values from the permutation distribution (two-sided)
+    abs_perm = np.abs(perm_arr)
+    cv_levels = [(0.10, "10%", "#888888"), (0.05, "5%", "#555555"), (0.01, "1%", "#222222")]
+    cv_vals = {alpha: np.quantile(abs_perm, 1 - alpha) for alpha, _, _ in cv_levels}
 
-        ax.hist(perm_arr, bins=60, color="#cccccc", edgecolor="#999999",
-                linewidth=0.3, density=True, zorder=1)
-        ax.axvline(act, color="#222222", linewidth=1.8, linestyle="-",
-                   zorder=3, label=f"Actual = {act:.3f}")
-        ax.axvline(-act, color="#222222", linewidth=1.0, linestyle="--",
-                   zorder=3, alpha=0.5)
+    fig, ax = plt.subplots(figsize=(5, 3.5))
+    ax.hist(perm_arr, bins=60, color="#cccccc", edgecolor="#999999",
+            linewidth=0.3, density=True, zorder=1)
 
-        ax.set_title(label, fontsize=9)
-        ax.set_xlabel("Coefficient", fontsize=8)
-        ax.text(0.97, 0.95, f"$p$ = {p_val:.3f}",
-                transform=ax.transAxes, fontsize=8, ha="right", va="top",
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
-                          edgecolor="#cccccc", alpha=0.9))
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
+    # Critical value lines (positive side only, with rotated labels)
+    ymax = ax.get_ylim()[1]
+    for alpha, label, color in cv_levels:
+        cv = cv_vals[alpha]
+        ax.axvline(cv, color=color, linewidth=1.0, linestyle="--", zorder=2, alpha=0.7)
+        ax.text(cv + 0.002, ymax * 0.5, label, fontsize=7, ha="left", va="center",
+                color=color, rotation=90)
 
-    fig.tight_layout(pad=0.5)
+    ax.axvline(act, color="#c0392b", linewidth=1.8, linestyle="-",
+               zorder=3)
+    ax.set_xlabel("Coefficient", fontsize=9)
+    ax.set_ylabel("Density", fontsize=9)
+    ax.text(0.97, 0.95, f"$p$ = {p_val:.3f}",
+            transform=ax.transAxes, fontsize=9, ha="right", va="top",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                      edgecolor="#cccccc", alpha=0.9))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    fig.tight_layout()
     fig_path = FIG_DIR / "permutation_distribution.pdf"
     fig.savefig(fig_path, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)

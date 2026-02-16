@@ -18,7 +18,14 @@ Outputs:
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from scipy import stats
 from pathlib import Path
 
@@ -157,6 +164,7 @@ def main():
 
     fig, ax = plt.subplots(figsize=(6, 5))
 
+    C_R = "#bf6b63"
     ax.scatter(x, y, s=45, color="#555555", alpha=0.6,
                edgecolors="white", linewidth=0.4, zorder=3)
 
@@ -169,8 +177,8 @@ def main():
     se_pred = np.sqrt(resid_var * (1.0 / n + (x_grid - x.mean()) ** 2 / ss_x))
 
     ax.fill_between(x_grid, y_hat - 1.96 * se_pred, y_hat + 1.96 * se_pred,
-                     color="#999999", alpha=0.15, zorder=1)
-    ax.plot(x_grid, y_hat, color="#333333", linewidth=1.8, zorder=4)
+                     color=C_R, alpha=0.12, zorder=1)
+    ax.plot(x_grid, y_hat, color=C_R, linewidth=1.8, zorder=4)
 
     ax.axhline(0, color="gray", linewidth=0.4, linestyle="-", zorder=0)
     ax.axvline(0, color="gray", linewidth=0.4, linestyle="-", zorder=0)

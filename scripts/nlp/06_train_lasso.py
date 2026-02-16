@@ -52,9 +52,9 @@ import pipeline_config as cfg
 # ------------------------------------------------------------------
 # Paths
 # ------------------------------------------------------------------
-MATRIX_PATH     = cfg.INPUT_SPEECH_DIR / "05_tfidf_matrix.npz"
-META_PATH       = cfg.INPUT_SPEECH_DIR / "05_tfidf_meta.parquet"
-VECTORIZER_PATH = cfg.INPUT_SPEECH_DIR / "05_tfidf_vectorizer.joblib"
+MATRIX_PATH     = cfg.INPUT_SPEECH_DIR / "05_feature_matrix.npz"
+META_PATH       = cfg.INPUT_SPEECH_DIR / "05_feature_meta.parquet"
+VECTORIZER_PATH = cfg.INPUT_SPEECH_DIR / "05_feature_vectorizer.joblib"
 OUT_DIR         = cfg.MODEL_DIR
 
 # ------------------------------------------------------------------
@@ -95,7 +95,7 @@ if SHARED_VOCAB_MIN_DF is not None:
     total_df = np.zeros(X_all.shape[1])
 
     for cong in cfg.get_congresses():
-        path = news_dir / f"07_newspaper_tfidf_cong_{cong}.npz"
+        path = news_dir / f"07_newspaper_features_cong_{cong}.npz"
         if not path.exists():
             print(f"  WARNING: {path.name} not found, skipping")
             continue

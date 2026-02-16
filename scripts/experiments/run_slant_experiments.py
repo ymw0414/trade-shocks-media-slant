@@ -9,7 +9,7 @@ Experiments (8 total):
   × 2 training samples (all R/D / core 20%)
   × 2 lambda selection (BIC / CV)
 
-Phase 1: Run step 05 (TF-IDF) for 2 aggregation levels
+Phase 1: Run step 05 (feature matrix) for 2 aggregation levels
 Phase 2: Run step 06 (LASSO) for 8 configs, reusing step 05 outputs
 Phase 3: Compare training accuracies → pick top configs
 Phase 4: Run steps 07-10 for top configs
@@ -75,7 +75,7 @@ def save_config(name, cfg):
 def run_step(step_num, config_path, timeout=1800):
     """Run a pipeline step with config override."""
     step_file = {
-        5: "05_build_tfidf.py",
+        5: "05_build_features.py",
         6: "06_train_lasso.py",
         7: "07_prepare_newspapers.py",
         8: "08_compute_slant.py",
@@ -149,7 +149,7 @@ def collect_results():
 # Define experiments
 # ══════════════════════════════════════════════════════════════════════
 
-# Phase 1: Step 05 runs (2 unique TF-IDF builds)
+# Phase 1: Step 05 runs (2 unique feature matrix builds)
 STEP05_RUNS = {
     "exp2_tfidf_speech": make_config(
         "exp2_tfidf_speech", aggregate=False, core_only=False, lambda_sel="bic"
@@ -205,7 +205,7 @@ if __name__ == "__main__":
 
     if args.phase == 0 or args.phase == 1:
         print("\n" + "=" * 60)
-        print("  PHASE 1: Building TF-IDF feature matrices (step 05)")
+        print("  PHASE 1: Building feature matrices (step 05)")
         print("=" * 60)
         for name, cfg in STEP05_RUNS.items():
             config_path = save_config(name, cfg)

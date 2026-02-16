@@ -25,7 +25,7 @@ ECON_DIR = BASE / "scripts" / "econ"
 ANALYSIS_DIR = BASE / "scripts" / "analysis"
 
 STEPS = [
-    ("05", NLP_DIR / "05_build_tfidf.py"),
+    ("05", NLP_DIR / "05_build_features.py"),
     ("07", NLP_DIR / "07_prepare_newspapers.py"),
     ("06", NLP_DIR / "06_train_lasso.py"),
     ("08", NLP_DIR / "08_project_slant.py"),

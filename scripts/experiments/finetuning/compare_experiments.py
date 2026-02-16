@@ -22,6 +22,13 @@ import json
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -118,8 +125,8 @@ def plot_comparison(all_results, depvar, label, out_path):
         ci_lo = sub["ci_lo"].values
         ci_hi = sub["ci_hi"].values
 
-        ax.fill_between(yrs, ci_lo, ci_hi, alpha=0.2, color="#2171b5")
-        ax.plot(yrs, coef, "o-", color="#2171b5", markersize=3, linewidth=1)
+        ax.fill_between(yrs, ci_lo, ci_hi, alpha=0.2, color="#2d2d2d")
+        ax.plot(yrs, coef, "o-", color="#2d2d2d", markersize=3, linewidth=1)
         ax.axhline(0, color="black", linewidth=0.5)
         ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
                    linestyle="--", alpha=0.7)

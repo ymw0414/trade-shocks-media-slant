@@ -21,7 +21,14 @@ Outputs:
 import os
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 from scipy import stats
 from pathlib import Path
 
@@ -135,9 +142,10 @@ def main():
     se_pred = np.sqrt(resid_var * (1.0 / n + (x_grid - x_mean) ** 2 / ss_x))
     t_crit = 1.96
 
+    C_R = "#bf6b63"
     ax.fill_between(x_grid, y_hat - t_crit * se_pred, y_hat + t_crit * se_pred,
-                     color="#999999", alpha=0.15, zorder=1)
-    ax.plot(x_grid, y_hat, color="#333333", linewidth=1.8, zorder=4)
+                     color=C_R, alpha=0.12, zorder=1)
+    ax.plot(x_grid, y_hat, color=C_R, linewidth=1.8, zorder=4)
 
     # Annotation (bottom-right for cleaner look)
     ax.text(0.97, 0.05,

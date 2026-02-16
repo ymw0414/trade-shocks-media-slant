@@ -21,6 +21,12 @@ import pandas as pd
 import pyfixest as pf
 import matplotlib
 matplotlib.use("Agg")
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import stats
@@ -214,13 +220,13 @@ def plot_trend_comparison(coefs_orig, coefs_detrended, label, depvar, slope):
     ax.errorbar(yrs - offset, coefs_orig["coef"],
                 yerr=[coefs_orig["coef"] - coefs_orig["ci_lo"],
                       coefs_orig["ci_hi"] - coefs_orig["coef"]],
-                fmt="o", color="#cb181d", markersize=4, capsize=2.5,
+                fmt="o", color="#2d2d2d", markersize=4, capsize=2.5,
                 linewidth=1.0, label="Original", alpha=0.5)
 
     ax.errorbar(yrs + offset, coefs_detrended["coef"],
                 yerr=[coefs_detrended["coef"] - coefs_detrended["ci_lo"],
                       coefs_detrended["ci_hi"] - coefs_detrended["coef"]],
-                fmt="s", color="#2171b5", markersize=4, capsize=2.5,
+                fmt="s", color="#7a7a7a", markersize=4, capsize=2.5,
                 linewidth=1.0, label=f"Detrended (slope={slope:.4f}/yr)")
 
     ax.axhline(0, color="black", linewidth=0.5)
@@ -309,7 +315,7 @@ def plot_alt_base(coefs, label, depvar, alt_base):
     fig, ax = plt.subplots(figsize=(12, 6))
     yrs = coefs["year"].values
 
-    color = "#cb181d" if "R" in depvar or "net" in depvar else "#2171b5"
+    color = "#2d2d2d"
     ax.errorbar(yrs, coefs["coef"],
                 yerr=[coefs["coef"] - coefs["ci_lo"],
                       coefs["ci_hi"] - coefs["coef"]],
@@ -376,18 +382,18 @@ def extrapolation_overlay(df, years):
         ax.errorbar(yrs, ctrl["coef"],
                     yerr=[ctrl["coef"] - ctrl["ci_lo"],
                           ctrl["ci_hi"] - ctrl["coef"]],
-                    fmt="o", color="#333333", markersize=5, capsize=3,
+                    fmt="o", color="#2d2d2d", markersize=5, capsize=3,
                     linewidth=1.2, label="Event study (with controls)")
 
         # Extrapolated trend line
         all_yrs = np.arange(years[0], years[-1] + 1)
         trend_line = slope * all_yrs + intercept
-        ax.plot(all_yrs, trend_line, color="#e41a1c", linewidth=2,
+        ax.plot(all_yrs, trend_line, color="#bf6b63", linewidth=2,
                 linestyle="--", alpha=0.8, label=f"Pre-trend line (slope={slope:.4f}/yr)")
 
         # Shade pre vs post
-        ax.axvspan(years[0] - 1, BASE_YEAR + 0.5, alpha=0.05, color="blue")
-        ax.axvspan(BASE_YEAR + 0.5, years[-1] + 1, alpha=0.05, color="red")
+        ax.axvspan(years[0] - 1, BASE_YEAR + 0.5, alpha=0.05, color="#e8e8e8")
+        ax.axvspan(BASE_YEAR + 0.5, years[-1] + 1, alpha=0.05, color="#e8e8e8")
 
         ax.axhline(0, color="black", linewidth=0.5)
         ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,

@@ -20,6 +20,13 @@ import os
 import numpy as np
 import pandas as pd
 import pyfixest as pf
+import matplotlib
+matplotlib.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["Computer Modern Roman", "CMU Serif", "Times New Roman"],
+    "mathtext.fontset": "cm",
+    "text.usetex": False,
+})
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -206,13 +213,13 @@ def plot_event_study(coefs_base, coefs_ctrl, depvar_label, out_path):
     ax.errorbar(yrs - offset, coefs_base["coef"],
                 yerr=[coefs_base["coef"] - coefs_base["ci_lo"],
                       coefs_base["ci_hi"] - coefs_base["coef"]],
-                fmt="o", color="#cb181d", markersize=5, capsize=3,
+                fmt="o", color="#2d2d2d", markersize=5, capsize=3,
                 linewidth=1.2, label="Baseline")
 
     ax.errorbar(yrs + offset, coefs_ctrl["coef"],
                 yerr=[coefs_ctrl["coef"] - coefs_ctrl["ci_lo"],
                       coefs_ctrl["ci_hi"] - coefs_ctrl["coef"]],
-                fmt="s", color="#2171b5", markersize=5, capsize=3,
+                fmt="s", color="#7a7a7a", markersize=5, capsize=3,
                 linewidth=1.2, label="+ China shock, manushare")
 
     ax.axhline(0, color="black", linewidth=0.5, linestyle="-")

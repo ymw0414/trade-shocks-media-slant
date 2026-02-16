@@ -35,7 +35,7 @@ NAFTA_YEAR = 1994
 
 def load_feature_names():
     """Load vectorizer and shared vocab mask to get filtered feature names."""
-    vec_path = cfg.INPUT_SPEECH_DIR / "05_tfidf_vectorizer.joblib"
+    vec_path = cfg.INPUT_SPEECH_DIR / "05_feature_vectorizer.joblib"
     vec = joblib.load(vec_path)
     all_features = vec.get_feature_names_out()
 
@@ -79,6 +79,8 @@ def compute_newspaper_frequencies(feature_names, shared_mask):
     """
     Compute feature frequencies in newspapers, split by vulnerability and period.
     Uses vectorized sparse matrix operations for speed.
+
+    Loads the L1-relative-frequency feature matrices (not TF-IDF).
     """
     # Load panel for vulnerability mapping
     panel = pd.read_parquet(PANEL_PATH)
@@ -96,16 +98,16 @@ def compute_newspaper_frequencies(feature_names, shared_mask):
     windows = cfg.get_windows()
     n_features = len(feature_names)
 
-    # Accumulators: {group: {"doc_count": array, "tfidf_sum": array, "n": int}}
+    # Accumulators: {group: {"doc_count": array, "freq_sum": array, "n": int}}
     groups = ["all", "pre", "post", "hi", "lo", "hi_pre", "hi_post", "lo_pre", "lo_post"]
-    acc = {g: {"doc_count": np.zeros(n_features), "tfidf_sum": np.zeros(n_features), "n": 0}
+    acc = {g: {"doc_count": np.zeros(n_features), "freq_sum": np.zeros(n_features), "n": 0}
            for g in groups}
 
     for window_congs in windows:
         cong = window_congs[-1]
 
-        # Load newspaper TF-IDF
-        X = sp.load_npz(NEWS_DIR / f"07_newspaper_tfidf_cong_{cong}.npz")
+        # Load newspaper feature matrix
+        X = sp.load_npz(NEWS_DIR / f"07_newspaper_features_cong_{cong}.npz")
         X = X[:, shared_mask].tocsr()
         meta = pd.read_parquet(NEWS_DIR / f"07_newspaper_meta_cong_{cong}.parquet")
 
@@ -135,7 +137,7 @@ def compute_newspaper_frequencies(feature_names, shared_mask):
             Xbin = X_binary[mask]
             # Sum across articles -> (n_features,) dense arrays
             acc[g]["doc_count"] += np.asarray(Xbin.sum(axis=0)).ravel()
-            acc[g]["tfidf_sum"] += np.asarray(Xsub.sum(axis=0)).ravel()
+            acc[g]["freq_sum"] += np.asarray(Xsub.sum(axis=0)).ravel()
             acc[g]["n"] += n_sel
 
         print(f"    Congress {cong}: {len(meta):,} articles processed")
@@ -146,7 +148,7 @@ def compute_newspaper_frequencies(feature_names, shared_mask):
         n = acc[g]["n"]
         if n > 0:
             result[f"doc_freq_{g}"] = acc[g]["doc_count"] / n
-            result[f"mean_tfidf_{g}"] = acc[g]["tfidf_sum"] / n
+            result[f"mean_freq_{g}"] = acc[g]["freq_sum"] / n
         print(f"  Group '{g}': {n:,} articles")
 
     return result
@@ -156,24 +158,24 @@ def analyze_results(coef_df, freq_df):
     """Merge and analyze: which features drive the R̃ increase?"""
     df = coef_df.merge(freq_df, on="feature")
 
-    # Contribution = |coef| x mean_tfidf (how much each feature contributes to slant score)
-    df["contrib_all"] = df["avg_coef"].abs() * df["mean_tfidf_all"]
-    df["contrib_hi_post"] = df["avg_coef"].abs() * df["mean_tfidf_hi_post"]
-    df["contrib_lo_post"] = df["avg_coef"].abs() * df["mean_tfidf_lo_post"]
-    df["contrib_hi_pre"] = df["avg_coef"].abs() * df["mean_tfidf_hi_pre"]
-    df["contrib_lo_pre"] = df["avg_coef"].abs() * df["mean_tfidf_lo_pre"]
+    # Contribution = |coef| x mean_freq (how much each feature contributes to slant score)
+    df["contrib_all"] = df["avg_coef"].abs() * df["mean_freq_all"]
+    df["contrib_hi_post"] = df["avg_coef"].abs() * df["mean_freq_hi_post"]
+    df["contrib_lo_post"] = df["avg_coef"].abs() * df["mean_freq_lo_post"]
+    df["contrib_hi_pre"] = df["avg_coef"].abs() * df["mean_freq_hi_pre"]
+    df["contrib_lo_pre"] = df["avg_coef"].abs() * df["mean_freq_lo_pre"]
 
     # Change: hi_post - hi_pre (did frequency change in vulnerable areas after NAFTA?)
     df["freq_change_hi"] = df["doc_freq_hi_post"] - df["doc_freq_hi_pre"]
     df["freq_change_lo"] = df["doc_freq_lo_post"] - df["doc_freq_lo_pre"]
     df["freq_did"] = df["freq_change_hi"] - df["freq_change_lo"]  # diff-in-diff of frequency
 
-    df["tfidf_change_hi"] = df["mean_tfidf_hi_post"] - df["mean_tfidf_hi_pre"]
-    df["tfidf_change_lo"] = df["mean_tfidf_lo_post"] - df["mean_tfidf_lo_pre"]
-    df["tfidf_did"] = df["tfidf_change_hi"] - df["tfidf_change_lo"]
+    df["freq_change_hi_mean"] = df["mean_freq_hi_post"] - df["mean_freq_hi_pre"]
+    df["freq_change_lo_mean"] = df["mean_freq_lo_post"] - df["mean_freq_lo_pre"]
+    df["freq_did_mean"] = df["freq_change_hi_mean"] - df["freq_change_lo_mean"]
 
     # Signed contribution DiD: positive = pushes slant rightward in hi-vuln areas post-NAFTA
-    df["signed_contrib_did"] = df["avg_coef"] * df["tfidf_did"]
+    df["signed_contrib_did"] = df["avg_coef"] * df["freq_did_mean"]
 
     return df
 
@@ -188,12 +190,12 @@ def print_report(df):
     print("  TOP 30 R-CODED FEATURES BY OVERALL CONTRIBUTION (|coef| x freq)")
     print("=" * 100)
     top_R = R.nlargest(30, "contrib_all")
-    print(f"  {'Feature':<25} {'Coef':>8} {'DocFreq%':>9} {'TF-IDF':>8} "
+    print(f"  {'Feature':<25} {'Coef':>8} {'DocFreq%':>9} {'MeanFreq':>8} "
           f"{'Contrib':>8} {'FreqDiD':>8} {'ContribDiD':>10}")
     print("  " + "-" * 90)
     for _, r in top_R.iterrows():
         print(f"  {r['feature']:<25} {r['avg_coef']:>8.2f} {r['doc_freq_all']*100:>8.2f}% "
-              f"{r['mean_tfidf_all']:>8.5f} {r['contrib_all']:>8.4f} "
+              f"{r['mean_freq_all']:>8.5f} {r['contrib_all']:>8.4f} "
               f"{r['freq_did']*100:>7.3f}% {r['signed_contrib_did']:>10.5f}")
 
     # ======== SECTION 2: Top D-coded features by contribution ========
@@ -201,12 +203,12 @@ def print_report(df):
     print("  TOP 30 D-CODED FEATURES BY OVERALL CONTRIBUTION (|coef| x freq)")
     print("=" * 100)
     top_D = D.nlargest(30, "contrib_all")
-    print(f"  {'Feature':<25} {'Coef':>8} {'DocFreq%':>9} {'TF-IDF':>8} "
+    print(f"  {'Feature':<25} {'Coef':>8} {'DocFreq%':>9} {'MeanFreq':>8} "
           f"{'Contrib':>8} {'FreqDiD':>8} {'ContribDiD':>10}")
     print("  " + "-" * 90)
     for _, r in top_D.iterrows():
         print(f"  {r['feature']:<25} {r['avg_coef']:>8.2f} {r['doc_freq_all']*100:>8.2f}% "
-              f"{r['mean_tfidf_all']:>8.5f} {r['contrib_all']:>8.4f} "
+              f"{r['mean_freq_all']:>8.5f} {r['contrib_all']:>8.4f} "
               f"{r['freq_did']*100:>7.3f}% {r['signed_contrib_did']:>10.5f}")
 
     # ======== SECTION 3: Features with largest positive DiD contribution ========
@@ -233,10 +235,10 @@ def print_report(df):
 
     for direction, label in [("R", "R-coded"), ("D", "D-coded")]:
         sub = df[df["direction"] == direction]
-        total_contrib_hi_pre = (sub["avg_coef"].abs() * sub["mean_tfidf_hi_pre"]).sum()
-        total_contrib_hi_post = (sub["avg_coef"].abs() * sub["mean_tfidf_hi_post"]).sum()
-        total_contrib_lo_pre = (sub["avg_coef"].abs() * sub["mean_tfidf_lo_pre"]).sum()
-        total_contrib_lo_post = (sub["avg_coef"].abs() * sub["mean_tfidf_lo_post"]).sum()
+        total_contrib_hi_pre = (sub["avg_coef"].abs() * sub["mean_freq_hi_pre"]).sum()
+        total_contrib_hi_post = (sub["avg_coef"].abs() * sub["mean_freq_hi_post"]).sum()
+        total_contrib_lo_pre = (sub["avg_coef"].abs() * sub["mean_freq_lo_pre"]).sum()
+        total_contrib_lo_post = (sub["avg_coef"].abs() * sub["mean_freq_lo_post"]).sum()
 
         print(f"\n  {label} features ({len(sub)}):")
         print(f"    Total contribution (|coef| x freq):")

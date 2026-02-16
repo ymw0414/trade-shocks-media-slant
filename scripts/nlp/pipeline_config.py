@@ -31,7 +31,7 @@ CONFIG = {
     "window_size": 1,                   # 1-congress (Widmer-style) or 2/3 (rolling)
     "ngram_range": (1, 2),              # (2,2)=bigrams only (Widmer), (1,2)=unigrams+bigrams
     "bigrams_only": False,              # True=Widmer, False=unigrams+bigrams
-    "use_relative_freq": True,          # True=Widmer (CountVec+L1norm), False=TF-IDF
+    "use_relative_freq": True,          # True=Widmer (CountVec+L1norm), False=legacy TF-IDF
     "freq_filter_mode": "widmer",       # "widmer" = per-party 0.1%/0.01%, "min_df" = global min_df
     "tfidf_min_df": 0.001,             # only used when freq_filter_mode="min_df"
     "partisan_core_only": False,        # False=all R vs D (Widmer), True=core only
@@ -73,14 +73,24 @@ NATIONAL_PAPERS = [
     "CHRISTIAN SCIENCE MONITOR",
 ]
 
+# ── Non-daily newspapers to exclude from analysis ─────────────────
+# These papers are not dailies (weekly, Sunday-only, or archive artifacts).
+# Retaining them would mix publication frequencies in the panel.
+NON_DAILY_PAPERS = [
+    "Quad-City Times, The (IA)",           # archive artifact (<400 articles/yr until 2003)
+    "Miami New Times (FL)",                 # alternative weekly
+    "Hunterdon Observer (Flemington, NJ)",  # weekly/semi-weekly
+    "New Hampshire Sunday News (Manchester, NH)",  # Sunday-only edition
+]
+
 # ── Shared input paths (fixed, independent of run) ────────────────
 SPEECHES_PATH       = BASE_DIR / "data" / "intermediate" / "speeches" / "01_speeches_merged.parquet"
 LABELS_PATH         = BASE_DIR / "data" / "intermediate" / "speeches" / "04_speeches_with_partisan_core.parquet"
 VOTEVIEW_PATH       = BASE_DIR / "data" / "raw" / "voteview_nominate" / "HSall_members.csv"
 RAW_NEWSPAPERS      = BASE_DIR / "data" / "intermediate" / "newspapers"
 NEWSPAPER_LABELS    = BASE_DIR / "data" / "processed" / "newspapers"   # step 04 labels
-NEWSPAPER_TFIDF_DIR = BASE_DIR / "data" / "processed" / "newspapers"   # step 07 TF-IDF outputs
-SPEECH_TFIDF_DIR    = BASE_DIR / "data" / "processed" / "speeches"     # step 05 TF-IDF outputs
+NEWSPAPER_FEATURES_DIR = BASE_DIR / "data" / "processed" / "newspapers"   # step 07 feature outputs
+SPEECH_FEATURES_DIR    = BASE_DIR / "data" / "processed" / "speeches"     # step 05 feature outputs
 GST_PROCEDURAL_PATH = BASE_DIR / "data" / "raw" / "speeches" / "vocabulary" / "procedural.txt"
 
 # Econ inputs (steps 12-13, shared across runs)
@@ -94,7 +104,7 @@ CHINA_SHOCK_PATH = BASE_DIR / "data" / "processed" / "econ" / "13_china_shock_cz
 if RUN_NAME == "main":
     # Main run: backward-compatible flat structure
     RUN_DIR    = BASE_DIR / "data" / "processed" / "runs" / "main"
-    SPEECH_DIR = SPEECH_TFIDF_DIR
+    SPEECH_DIR = SPEECH_FEATURES_DIR
     MODEL_DIR  = SPEECH_DIR / "models"
     NEWS_DIR   = BASE_DIR / "data" / "processed" / "newspapers"
     PANEL_DIR  = BASE_DIR / "data" / "processed" / "panel"

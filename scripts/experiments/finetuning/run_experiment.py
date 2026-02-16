@@ -125,7 +125,7 @@ def main():
     # Define pipeline steps
     steps = []
     if is_full:
-        steps.append((5, SCRIPTS_DIR / "nlp" / "05_build_tfidf.py", "Step 05: Build TF-IDF"))
+        steps.append((5, SCRIPTS_DIR / "nlp" / "05_build_features.py", "Step 05: Build features"))
         steps.append((7, SCRIPTS_DIR / "nlp" / "07_prepare_newspapers.py", "Step 07: Transform newspapers"))
 
     steps.extend([

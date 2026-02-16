@@ -1,22 +1,22 @@
 """
 05b_append_congress98.py
 
-Append congress 98 legislator-congress documents to the existing TF-IDF
+Append congress 98 legislator-congress documents to the existing feature
 matrix using the saved vectorizer from step 05.
 
 This avoids re-fitting the vectorizer (which would change the vocabulary
-and require re-running step 07 for newspaper TF-IDF).
+and require re-running step 07 for newspaper features).
 
 Inputs:
   - data/intermediate/speeches/01_speeches_merged.parquet
   - data/intermediate/speeches/04_speeches_with_partisan_core.parquet
-  - data/processed/speeches/05_tfidf_vectorizer.joblib
-  - data/processed/speeches/05_tfidf_matrix.npz
-  - data/processed/speeches/05_tfidf_meta.parquet
+  - data/processed/speeches/05_feature_vectorizer.joblib
+  - data/processed/speeches/05_feature_matrix.npz
+  - data/processed/speeches/05_feature_meta.parquet
 
 Outputs (overwrites):
-  - data/processed/speeches/05_tfidf_matrix.npz
-  - data/processed/speeches/05_tfidf_meta.parquet
+  - data/processed/speeches/05_feature_matrix.npz
+  - data/processed/speeches/05_feature_meta.parquet
 """
 
 import os
@@ -37,20 +37,20 @@ PROC_DIR = BASE_DIR / "data" / "processed" / "speeches"
 SPEECHES_PATH = INTER_DIR / "01_speeches_merged.parquet"
 LABELS_PATH = INTER_DIR / "04_speeches_with_partisan_core.parquet"
 
-TFIDF_PATH = PROC_DIR / "05_tfidf_matrix.npz"
-META_PATH = PROC_DIR / "05_tfidf_meta.parquet"
-VEC_PATH = PROC_DIR / "05_tfidf_vectorizer.joblib"
+MATRIX_PATH = PROC_DIR / "05_feature_matrix.npz"
+META_PATH = PROC_DIR / "05_feature_meta.parquet"
+VEC_PATH = PROC_DIR / "05_feature_vectorizer.joblib"
 
 MIN_SPEECH_WORDS = 100
 TARGET_CONGRESS = 98
 
 # ------------------------------------------------------------------
-# 1. Check if congress 98 already in TF-IDF
+# 1. Check if congress 98 already in feature matrix
 # ------------------------------------------------------------------
-print("Loading existing TF-IDF metadata ...")
+print("Loading existing feature matrix metadata ...")
 meta_existing = pd.read_parquet(META_PATH)
 if TARGET_CONGRESS in meta_existing["congress_int"].values:
-    print(f"  Congress {TARGET_CONGRESS} already in TF-IDF ({len(meta_existing)} rows). Nothing to do.")
+    print(f"  Congress {TARGET_CONGRESS} already in feature matrix ({len(meta_existing)} rows). Nothing to do.")
     exit(0)
 print(f"  Existing: {len(meta_existing)} legislator-congress docs, "
       f"congresses {meta_existing['congress_int'].min()}-{meta_existing['congress_int'].max()}")
@@ -104,13 +104,13 @@ print(f"  Congress {TARGET_CONGRESS}: {len(agg)} legislators "
 print("\nTransforming with saved vectorizer ...")
 vectorizer = joblib.load(VEC_PATH)
 X_new = vectorizer.transform(agg["text"])
-print(f"  New TF-IDF: {X_new.shape}")
+print(f"  New feature matrix: {X_new.shape}")
 
 # ------------------------------------------------------------------
-# 5. Append to existing TF-IDF
+# 5. Append to existing feature matrix
 # ------------------------------------------------------------------
-print("\nAppending to existing TF-IDF ...")
-X_existing = sp.load_npz(TFIDF_PATH)
+print("\nAppending to existing feature matrix ...")
+X_existing = sp.load_npz(MATRIX_PATH)
 print(f"  Existing: {X_existing.shape}")
 
 X_combined = sp.vstack([X_new, X_existing])  # congress 98 first (earlier)
@@ -120,7 +120,7 @@ meta_new = agg.drop(columns=["text"])
 meta_combined = pd.concat([meta_new, meta_existing], ignore_index=True)
 meta_combined = meta_combined.sort_values(["congress_int", "icpsr"]).reset_index(drop=True)
 
-# Sort TF-IDF rows to match metadata order
+# Sort feature matrix rows to match metadata order
 # Build mapping from (icpsr, congress_int) to row index in combined matrix
 combined_keys = pd.concat([
     meta_new[["icpsr", "congress_int"]],
@@ -138,10 +138,10 @@ assert X_combined.shape[0] == len(meta_combined)
 # ------------------------------------------------------------------
 # 6. Save (overwrite)
 # ------------------------------------------------------------------
-sp.save_npz(TFIDF_PATH, X_combined)
+sp.save_npz(MATRIX_PATH, X_combined)
 meta_combined.to_parquet(META_PATH)
 
-print(f"\n  Saved TF-IDF -> {TFIDF_PATH}")
+print(f"\n  Saved feature matrix -> {MATRIX_PATH}")
 print(f"  Saved meta -> {META_PATH}")
 
 # Verify

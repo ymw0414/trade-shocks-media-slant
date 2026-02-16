@@ -89,7 +89,7 @@ print("=== 2. Top Partisan Phrases Table ===")
 sys.path.insert(0, os.path.join(BASE, "scripts", "utils"))
 import joblib
 
-vectorizer = joblib.load(str(cfg.SPEECH_DIR / "05_tfidf_vectorizer.joblib"))
+vectorizer = joblib.load(str(cfg.SPEECH_DIR / "05_feature_vectorizer.joblib"))
 intersection_cols = np.load(os.path.join(MODELS, "06_intersection_cols.npy"))
 feature_names = vectorizer.get_feature_names_out()[intersection_cols]
 

@@ -4,7 +4,7 @@ Measuring how NAFTA trade exposure shifted U.S. newspaper slant using text analy
 
 ## Method
 
-1. **Partisan language model** — Build a vocabulary of partisan phrases from Congressional Record speeches (Congresses 99–108) using rolling-window LASSO on TF-IDF features, trained on ideologically extreme legislators identified via Nokken-Poole scores.
+1. **Partisan language model** — Build a vocabulary of partisan phrases from Congressional Record speeches (Congresses 99–108) using rolling-window LASSO on L1-normalized count features, trained on ideologically extreme legislators identified via Nokken-Poole scores.
 
 2. **Newspaper scoring** — Project the partisan language model onto newspaper articles to produce four measures per article: right intensity, left intensity, net slant, and politicization. Normalize by the Congressional partisan gap for cross-year comparability.
 
@@ -21,7 +21,7 @@ scripts/
 │   ├── 02_merge_speaker_map.py      Map speaker IDs to metadata
 │   ├── 03_add_party_label.py        Add party affiliation
 │   ├── 04_label_partisan_core.py    Identify extreme partisans (Nokken-Poole)
-│   ├── 05_build_tfidf.py            Build TF-IDF matrix
+│   ├── 05_build_features.py          Build feature matrix (CountVectorizer + L1)
 │   ├── 06_train_lasso.py            Train rolling-window LASSO classifiers
 │   ├── 07_prepare_newspapers.py     Vectorize newspaper articles
 │   ├── 08_project_slant.py          Score articles with LASSO coefficients

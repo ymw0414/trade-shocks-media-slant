@@ -10,14 +10,14 @@ Label newspaper articles with:
 Approach (economy score):
   - Define economy seed words, stem with PorterStemmer.
   - Build a sparse anchor vector from vocabulary hits, L2-normalize.
-  - Cosine similarity = dot product (article TF-IDF rows are L2-normed).
+  - Cosine similarity = dot product (article feature rows are L2-normed).
 
 Approach (is_news):
   - Title-based pattern matching against known non-news categories.
 
 Inputs:
-  - data/processed/speeches/05_tfidf_vectorizer.joblib
-  - data/processed/newspapers/07_newspaper_tfidf_cong_{cong}.npz
+  - data/processed/speeches/05_feature_vectorizer.joblib
+  - data/processed/newspapers/07_newspaper_features_cong_{cong}.npz
   - data/processed/newspapers/07_newspaper_meta_cong_{cong}.parquet
 
 Outputs (per congress):
@@ -44,7 +44,7 @@ import text_analyzer  # noqa: F401
 # ------------------------------------------------------------------
 BASE_DIR = Path(os.environ["SHIFTING_SLANT_DIR"])
 
-VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_tfidf_vectorizer.joblib"
+VECTORIZER_PATH = BASE_DIR / "data" / "processed" / "speeches" / "05_feature_vectorizer.joblib"
 NEWSPAPER_DIR = BASE_DIR / "data" / "processed" / "newspapers"
 
 OUT_DIR = NEWSPAPER_DIR  # save alongside step-07 outputs
@@ -171,7 +171,7 @@ if __name__ == "__main__":
     stemmer = PorterStemmer()
 
     # ---- Economy anchor ----
-    print("Loading TF-IDF vectorizer ...")
+    print("Loading vectorizer ...")
     vectorizer = joblib.load(VECTORIZER_PATH)
     vocab = vectorizer.vocabulary_
     n_features = len(vocab)
@@ -236,14 +236,14 @@ if __name__ == "__main__":
     all_stats = []
 
     for cong in congresses:
-        tfidf_path = NEWSPAPER_DIR / f"07_newspaper_tfidf_cong_{cong}.npz"
+        features_path = NEWSPAPER_DIR / f"07_newspaper_features_cong_{cong}.npz"
         meta_path = NEWSPAPER_DIR / f"07_newspaper_meta_cong_{cong}.parquet"
 
-        if not tfidf_path.exists():
-            print(f"  WARNING: {tfidf_path.name} not found, skipping")
+        if not features_path.exists():
+            print(f"  WARNING: {features_path.name} not found, skipping")
             continue
 
-        tfidf = sp.load_npz(tfidf_path)
+        X_news = sp.load_npz(features_path)
         meta = pd.read_parquet(meta_path)
 
         # --- is_news flag ---
@@ -252,7 +252,7 @@ if __name__ == "__main__":
         meta["is_news"] = ~is_non_news
 
         # --- econ_score ---
-        econ_scores = tfidf.dot(anchor.T).toarray().ravel()
+        econ_scores = X_news.dot(anchor.T).toarray().ravel()
         meta["econ_score"] = econ_scores
 
         # Save
@@ -283,7 +283,7 @@ if __name__ == "__main__":
               f"{n_news:>9,} news  {n_non_news:>7,} non-news ({pct_non_news:.1f}%)  |  "
               f"econ p90={stats['econ_p90']:.4f}  p95={stats['econ_p95']:.4f}")
 
-        del tfidf, meta, econ_scores
+        del X_news, meta, econ_scores
         gc.collect()
 
     # ---- Summary ----
