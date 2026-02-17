@@ -221,7 +221,7 @@ def plot_accuracy_convergence(results_df, summary_df):
     ax.plot(median_curve.index, median_curve.values, "-o", color=C_R,
             linewidth=2.2, markersize=4, label="Median", zorder=10)
 
-    ax.set_xlabel("Number of speeches per legislator", fontsize=11)
+    ax.set_xlabel("Number of speeches per legislator ($n$)", fontsize=11)
     ax.set_ylabel("Classification accuracy", fontsize=11)
     ax.set_xscale("log")
     ax.set_xticks([1, 2, 5, 10, 20, 50, 100, 200])
@@ -418,7 +418,7 @@ def plot_slant_convergence(paths_df, ny_df=None):
             ax.plot(d["k"], d["mean_slant"], color=c,
                     alpha=0.18, linewidth=0.4, zorder=2)
 
-        # Median trace: bold
+        # Median across draws: bold
         med = sub.groupby("k")["mean_slant"].median().reset_index()
 
         # Clean newspaper name for legend
@@ -456,7 +456,7 @@ def plot_slant_convergence(paths_df, ny_df=None):
                     arrowprops=dict(arrowstyle="-", color="#888888",
                                    linewidth=0.6))
 
-    ax.set_xlabel("Number of articles", fontsize=11)
+    ax.set_xlabel("Number of articles ($n$)", fontsize=11)
     ax.set_ylabel("Estimated mean slant ($\\tilde{S}$)", fontsize=11)
     ax.set_xscale("log")
     ax.legend(fontsize=8, loc="best", framealpha=0.9, edgecolor="#cccccc")

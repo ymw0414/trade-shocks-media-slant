@@ -170,9 +170,9 @@ def plot_event_study_dual(coefs_base, coefs_ctrl, depvar_label, out_path):
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
                linestyle="--", alpha=0.7, label="NAFTA (1994)")
 
-    ax.set_xlabel("Year", fontsize=12)
-    ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
-    ax.legend(fontsize=10, framealpha=0.9)
+    ax.set_xlabel("Year", fontsize=13)
+    ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=13)
+    ax.legend(fontsize=12, framealpha=0.9)
     ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
     ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
                         fontsize=10)
@@ -211,9 +211,9 @@ def plot_combined_intensity(coefs_right, coefs_left, title, out_path,
     ax.axvline(BASE_YEAR + 0.5, color="gray", linewidth=0.8,
                linestyle="--", alpha=0.7, label="NAFTA (1994)")
 
-    ax.set_xlabel("Year", fontsize=12)
-    ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=12)
-    ax.legend(fontsize=10, framealpha=0.9, loc="upper left")
+    ax.set_xlabel("Year", fontsize=13)
+    ax.set_ylabel("Coefficient on Vulnerability \u00d7 Year", fontsize=13)
+    ax.legend(fontsize=12, framealpha=0.9, loc="upper left")
     ax.set_xticks([yr for yr in yrs if yr % 2 == 1 or yr == yrs[0]])
     ax.set_xticklabels([str(yr) for yr in yrs if yr % 2 == 1 or yr == yrs[0]],
                         fontsize=10)

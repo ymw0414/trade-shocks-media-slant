@@ -177,8 +177,7 @@ def trend_adjusted_es(df, years):
     print("=" * 70)
 
     # Load original controlled-spec coefficients
-    tab_dir = (BASE_DIR / "data" / "processed" / "runs" / "exp_uni_gst_core_cv"
-               / "output" / "tables")
+    tab_dir = cfg.TAB_DIR
     es_df = pd.read_csv(tab_dir / "event_study_coefficients.csv")
 
     all_coefs = {}
@@ -351,8 +350,7 @@ def extrapolation_overlay(df, years):
     print("=" * 70)
 
     # Load original controlled-spec coefficients
-    tab_dir = (BASE_DIR / "data" / "processed" / "runs" / "exp_uni_gst_core_cv"
-               / "output" / "tables")
+    tab_dir = cfg.TAB_DIR
     es_df = pd.read_csv(tab_dir / "event_study_coefficients.csv")
 
     for depvar, label in DEPVARS:
